@@ -1,6 +1,6 @@
 # Core RL Framework
 ray[rllib]==2.10.0
-gymnasium==0.29.1
+gymnasium==0.28.1
 pettingzoo==1.24.3
 
 # Deep Learning
@@ -20,7 +20,7 @@ streamlit==1.29.0
 
 # Backend API (zustandsbehaftet)
 fastapi==0.109.0
-uvicorn==0.27.0
+uvicorn[standard]==0.27.0
 
 # Cloud Storage
 gcsfs==2023.12.0
