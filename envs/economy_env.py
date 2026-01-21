@@ -25,12 +25,17 @@ class EconomyEnv(gym.Env):
     
     metadata = {'render_modes': []}
     
-    def __init__(self, max_years=5):
+    def __init__(self, config=None):
         super().__init__()
+        
+        # Config kann EnvContext (RLlib) oder Dict (lokal) sein
+        if config is None:
+            config = {}
         
         # === ZEITSTRUKTUR ===
         self.days_per_year = 365
-        self.max_years = max_years
+        # max_years aus config extrahieren (mit default=5)
+        self.max_years = config.get('max_years', 5) if hasattr(config, 'get') else getattr(config, 'max_years', 5)
         self.max_steps = self.days_per_year * self.max_years
         self.current_day = 0
         self.current_year = 1
