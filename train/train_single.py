@@ -1,80 +1,129 @@
-"""Single-Agent Training: 1 Regierungs-Agent lernt Wirtschaftspolitik"""
+"""Training Script für Single-Agent (Regierung)
+
+Trainiert einen PPO-Agent als Regierung.
+Firmen und Haushalte sind regelbasiert.
+
+Zeitstruktur:
+- 1 Episode = 5 Jahre = 1825 Steps
+- Training über mehrere Episoden
+"""
+
+import sys
+from pathlib import Path
+
+# PYTHONPATH Auto-Fix (funktioniert immer!)
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
 import ray
 from ray.rllib.algorithms.ppo import PPOConfig
 from envs.economy_env import EconomyEnv
 import os
 
 
-def main():
-    # Ray initialisieren
-    ray.init(ignore_reinit_error=True)
+def train_government(num_iterations=20, max_years=5):
+    """
+    Trainiere Regierungs-Agent
     
-    print("\n🚀 Starting Single-Agent Training: Regierungs-RL-Agent")
+    Args:
+        num_iterations: Anzahl Training-Iterationen (nicht Jahre!)
+        max_years: Jahre pro Episode
+    """
+    print("\n" + "="*60)
+    print("🧠 VWL-RL Training: Regierungs-Agent (Single-Agent)")
     print("="*60)
+    print(f"Zeitstruktur: {max_years} Jahre/Episode = {365*max_years} Steps")
+    print(f"Training: {num_iterations} Iterationen")
+    print("="*60 + "\n")
     
-    # PPO Config
+    # Ray initialisieren
+    ray.init(ignore_reinit_error=True, num_cpus=4)
+    
+    # PPO Config (Ray 2.10 API!)
     config = (
         PPOConfig()
-        .environment(EconomyEnv, env_config={
-            "num_firms": 10,
-            "num_households": 50
-        })
+        .environment(env=EconomyEnv, env_config={'max_years': max_years})
         .framework("torch")
-        .env_runners(num_env_runners=2)
+        .rollouts(                              # Ray 2.10: rollouts() nicht env_runners()!
+            num_rollout_workers=2,              # Parallel workers
+            rollout_fragment_length="auto"       # Auto-batch
+        )
         .training(
-            train_batch_size=4000,
-            sgd_minibatch_size=128,
-            num_sgd_iter=10,
-            lr=5e-5,
-            gamma=0.99,
-            lambda_=0.95,
-            clip_param=0.2,
-            vf_clip_param=10.0,
-            entropy_coeff=0.01,
+            train_batch_size=4000,               # Samples pro Training
+            sgd_minibatch_size=256,              # Mini-batch size
+            num_sgd_iter=10,                     # SGD iterations
+            lr=3e-4,                             # Learning rate
+            gamma=0.99,                          # Discount factor
+            lambda_=0.95,                        # GAE lambda
+            clip_param=0.2,                      # PPO clip
+            entropy_coeff=0.01,                  # Exploration
+            vf_loss_coeff=0.5                    # Value function loss weight
         )
         .resources(
-            num_gpus=0,  # CPU only
+            num_gpus=0  # CPU training (GPU optional)
+        )
+        .reporting(
+            min_sample_timesteps_per_iteration=4000
         )
     )
     
     # Algo erstellen
     algo = config.build()
     
-    print("\n✅ Environment & PPO erstellt")
-    print(f"   - Observation Space: {algo.env_creator(None).observation_space}")
-    print(f"   - Action Space: {algo.env_creator(None).action_space}")
+    print("🚀 Training startet...\n")
     
     # Training Loop
-    num_iterations = 50
-    print(f"\n🏋️ Training für {num_iterations} Iterationen...\n")
-    
-    best_reward = -float('inf')
+    best_reward = float('-inf')
     
     for i in range(num_iterations):
         result = algo.train()
         
-        # Metrics
-        ep_reward_mean = result.get("env_runners", {}).get("episode_return_mean", 0)
-        ep_len_mean = result.get("env_runners", {}).get("episode_len_mean", 0)
+        # Metriken extrahieren (Ray 2.10 Format)
+        episode_reward_mean = result.get('episode_reward_mean', 0)
+        episode_len_mean = result.get('episode_len_mean', 0)
         
-        print(f"Iteration {i+1}/{num_iterations} | "
-              f"Reward: {ep_reward_mean:.2f} | "
-              f"Ep Length: {ep_len_mean:.1f}")
+        print(f"\n📊 Iteration {i+1}/{num_iterations}")
+        print(f"   Episode Reward Mean: {episode_reward_mean:.2f}")
+        print(f"   Episode Length Mean: {episode_len_mean:.1f} Steps")
+        print(f"   Entspricht: {episode_len_mean/365:.2f} Jahren")
         
-        # Best Model speichern
-        if ep_reward_mean > best_reward:
-            best_reward = ep_reward_mean
-            checkpoint_dir = algo.save("models")
-            print(f"   💾 Neues Best Model gespeichert: {checkpoint_dir}")
+        # Checkpoint bei Verbesserung
+        if episode_reward_mean > best_reward:
+            best_reward = episode_reward_mean
+            checkpoint_dir = algo.save()
+            print(f"   ✅ Neuer Bestwert! Checkpoint: {checkpoint_dir}")
+        
+        # Alle 5 Iterationen: Checkpoint
+        if (i + 1) % 5 == 0:
+            checkpoint_dir = algo.save()
+            print(f"   💾 Checkpoint gespeichert: {checkpoint_dir}")
+    
+    # Final Checkpoint
+    final_checkpoint = algo.save()
     
     print("\n" + "="*60)
-    print(f"✅ Training abgeschlossen! Best Reward: {best_reward:.2f}")
-    print(f"📁 Model gespeichert in: models/")
+    print("✅ Training abgeschlossen!")
+    print(f"Bester Reward: {best_reward:.2f}")
+    print(f"Final Checkpoint: {final_checkpoint}")
+    print("="*60 + "\n")
     
-    # Cleanup
+    # Aufräumen
     algo.stop()
     ray.shutdown()
+    
+    return final_checkpoint
 
 
 if __name__ == "__main__":
-    main()
+    # Training konfigurieren
+    NUM_ITERATIONS = 20      # Training iterations (nicht Jahre!)
+    MAX_YEARS = 5            # Jahre pro Episode
+    
+    checkpoint = train_government(
+        num_iterations=NUM_ITERATIONS,
+        max_years=MAX_YEARS
+    )
+    
+    print(f"\n🎯 Nächste Schritte:")
+    print(f"1. Model laden: algo = Algorithm.from_checkpoint('{checkpoint}')")
+    print(f"2. Evaluieren: python tests/test_scenarios.py")
+    print(f"3. Frontend testen: streamlit run frontend/app.py\n")
