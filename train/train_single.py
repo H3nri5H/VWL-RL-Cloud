@@ -12,6 +12,7 @@ Features:
 - Resume from Checkpoint (Training fortsetzen)
 - Clean Output (keine Warnings)
 - Checkpoints alle 5 Iterationen
+- Permanente Speicherung in ./checkpoints/
 """
 
 # === WARNINGS UNTERDRÜCKEN (VOR ALLEN IMPORTS!) ===
@@ -22,7 +23,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import sys
 from pathlib import Path
 import signal
-import glob
+from datetime import datetime
 
 # PYTHONPATH Auto-Fix
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -50,7 +51,8 @@ def signal_handler(sig, frame):
         print("\n💾 Speichere finales Model...")
         try:
             final_checkpoint = algo_global.save()
-            print(f"✅ Model gespeichert: {final_checkpoint}")
+            checkpoint_path = final_checkpoint.checkpoint.path
+            print(f"✅ Model gespeichert: {checkpoint_path}")
         except Exception as e:
             print(f"❌ Fehler beim Speichern: {e}")
             if best_checkpoint_global:
@@ -65,33 +67,31 @@ def signal_handler(sig, frame):
 
 
 def find_latest_checkpoint():
-    """Findet den neuesten Checkpoint im ~/ray_results Ordner
+    """Findet den neuesten Checkpoint im ./checkpoints Ordner
     
     Returns:
         str | None: Pfad zum Checkpoint oder None
     """
-    ray_results = Path.home() / "ray_results"
+    checkpoint_dir = Path("checkpoints")
     
-    if not ray_results.exists():
+    if not checkpoint_dir.exists():
         return None
     
-    # Suche nach PPO-Checkpoints
+    # Suche nach checkpoint_XXXXXX Ordnern
     checkpoints = []
-    for ppo_dir in ray_results.glob("PPO_*"):
-        # Finde alle checkpoint_* Ordner
-        for ckpt_dir in ppo_dir.glob("checkpoint_*"):
-            if ckpt_dir.is_dir():
+    for ckpt_dir in checkpoint_dir.glob("checkpoint_*"):
+        if ckpt_dir.is_dir():
+            try:
                 # Extrahiere Iteration-Nummer
-                try:
-                    iteration = int(ckpt_dir.name.split('_')[-1])
-                    checkpoints.append((ckpt_dir, iteration))
-                except:
-                    continue
+                iteration = int(ckpt_dir.name.split('_')[1])
+                checkpoints.append((ckpt_dir, iteration))
+            except:
+                continue
     
     if not checkpoints:
         return None
     
-    # Neuesten Checkpoint (höchste Iteration) zurückgeben
+    # Neuesten Checkpoint zurückgeben
     latest = max(checkpoints, key=lambda x: x[1])
     return str(latest[0])
 
@@ -110,15 +110,20 @@ def train_government(num_iterations=20, max_years=5, resume_from_checkpoint=None
     """
     global algo_global, best_checkpoint_global
     
+    # Checkpoint-Verzeichnis erstellen
+    checkpoint_base = Path("checkpoints")
+    checkpoint_base.mkdir(exist_ok=True)
+    
     print("\n" + "="*60)
     print("🧠 VWL-RL Training: Regierungs-Agent (Single-Agent)")
     print("="*60)
     print(f"Zeitstruktur: {max_years} Jahre/Episode = {365*max_years} Steps")
     print(f"Training: {num_iterations} Iterationen")
+    print(f"Checkpoints: ./checkpoints/")
     
     if resume_from_checkpoint:
         print(f"\n🔄 Resume: Training wird fortgesetzt")
-        print(f"   Checkpoint: ...{resume_from_checkpoint[-50:]}")
+        print(f"   Checkpoint: {resume_from_checkpoint}")
     else:
         print(f"\n🆕 Neues Training (von Null)")
     
@@ -200,26 +205,34 @@ def train_government(num_iterations=20, max_years=5, resume_from_checkpoint=None
             # Checkpoint bei Verbesserung
             if episode_reward_mean > best_reward:
                 best_reward = episode_reward_mean
-                best_checkpoint_global = algo.save()
-                print(f"   ✅ Neuer Bestwert!")
+                
+                # Speichere in permanentes Verzeichnis
+                checkpoint_path = checkpoint_base / f"checkpoint_{total_iterations:06d}"
+                checkpoint_result = algo.save(checkpoint_dir=str(checkpoint_path))
+                best_checkpoint_global = str(checkpoint_path)
+                
+                print(f"   ✅ Neuer Bestwert! Checkpoint: {checkpoint_path.name}")
             
             # Alle 5 Iterationen: Checkpoint
             if total_iterations % 5 == 0:
-                checkpoint = algo.save()
+                checkpoint_path = checkpoint_base / f"checkpoint_{total_iterations:06d}"
+                algo.save(checkpoint_dir=str(checkpoint_path))
                 print(f"   💾 Checkpoint ({total_iterations})\n")
         
         # Normale Beendigung
-        final_checkpoint = algo.save()
+        final_path = checkpoint_base / f"checkpoint_final"
+        algo.save(checkpoint_dir=str(final_path))
         
         print("\n" + "="*60)
         print("✅ Training abgeschlossen!")
         print(f"Bester Reward: {best_reward:.2f}")
-        print(f"Model gespeichert: {final_checkpoint}")
+        print(f"Final Checkpoint: {final_path}")
         print("="*60 + "\n")
         
+        final_checkpoint = str(final_path)
+        
     except KeyboardInterrupt:
-        # Sollte durch signal_handler gefangen werden
-        print("\n⚠️  KeyboardInterrupt (sollte nicht hier landen)")
+        print("\n⚠️  KeyboardInterrupt")
         final_checkpoint = best_checkpoint_global
     
     finally:
@@ -255,7 +268,7 @@ if __name__ == "__main__":
     if RESUME:
         checkpoint = find_latest_checkpoint()
         if checkpoint:
-            print(f"🔍 Checkpoint gefunden: ...{checkpoint[-50:]}")
+            print(f"🔍 Checkpoint gefunden: {checkpoint}")
         else:
             print("⚠️  Kein Checkpoint gefunden, starte neues Training")
     
@@ -269,4 +282,5 @@ if __name__ == "__main__":
     print(f"\n🎯 Nächste Schritte:")
     print(f"1. Model evaluieren: python tests/test_scenarios.py")
     print(f"2. Frontend testen: streamlit run frontend/app.py")
-    print(f"3. Weiter trainieren: RESUME = True setzen\n")
+    print(f"3. Weiter trainieren: RESUME = True setzen")
+    print(f"4. Checkpoints: ./checkpoints/\n")
