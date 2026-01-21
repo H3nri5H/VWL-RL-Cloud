@@ -1,0 +1,30 @@
+# Core RL Framework
+ray[rllib]==2.10.0
+gymnasium==0.29.1
+pettingzoo==1.24.3
+
+# Deep Learning
+torch==2.1.0
+
+# Data Processing
+numpy==1.26.4
+pyarrow==14.0.1
+pandas==2.1.0
+
+# Visualization
+matplotlib==3.8.0
+plotly==5.18.0
+
+# Web Frontend (zustandslos)
+streamlit==1.29.0
+
+# Backend API (zustandsbehaftet)
+fastapi==0.109.0
+uvicorn==0.27.0
+
+# Cloud Storage
+gcsfs==2023.12.0
+python-dotenv==1.0.0
+
+# Optional: TensorFlow für zusätzliche RL-Algos
+# tensorflow-cpu==2.15.0
