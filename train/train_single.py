@@ -8,7 +8,8 @@ Zeitstruktur:
 - Training über mehrere Episoden
 
 Features:
-- Strg+C sicheres Beenden (speichert Model vor Exit)
+- Strg+C sicheres Beenden (speichert Model)
+- Resume from Checkpoint (Training fortsetzen)
 - Clean Output (keine Warnings)
 - Checkpoints alle 5 Iterationen
 """
@@ -21,6 +22,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import sys
 from pathlib import Path
 import signal
+import glob
 
 # PYTHONPATH Auto-Fix
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -29,7 +31,7 @@ import warnings
 warnings.filterwarnings('ignore')
 
 import ray
-from ray.rllib.algorithms.ppo import PPOConfig
+from ray.rllib.algorithms.ppo import PPOConfig, PPO
 from envs.economy_env import EconomyEnv
 
 
@@ -62,13 +64,46 @@ def signal_handler(sig, frame):
     sys.exit(0)
 
 
-def train_government(num_iterations=20, max_years=5):
+def find_latest_checkpoint():
+    """Findet den neuesten Checkpoint im ~/ray_results Ordner
+    
+    Returns:
+        str | None: Pfad zum Checkpoint oder None
+    """
+    ray_results = Path.home() / "ray_results"
+    
+    if not ray_results.exists():
+        return None
+    
+    # Suche nach PPO-Checkpoints
+    checkpoints = []
+    for ppo_dir in ray_results.glob("PPO_*"):
+        # Finde alle checkpoint_* Ordner
+        for ckpt_dir in ppo_dir.glob("checkpoint_*"):
+            if ckpt_dir.is_dir():
+                # Extrahiere Iteration-Nummer
+                try:
+                    iteration = int(ckpt_dir.name.split('_')[-1])
+                    checkpoints.append((ckpt_dir, iteration))
+                except:
+                    continue
+    
+    if not checkpoints:
+        return None
+    
+    # Neuesten Checkpoint (höchste Iteration) zurückgeben
+    latest = max(checkpoints, key=lambda x: x[1])
+    return str(latest[0])
+
+
+def train_government(num_iterations=20, max_years=5, resume_from_checkpoint=None):
     """
     Trainiere Regierungs-Agent
     
     Args:
         num_iterations: Anzahl Training-Iterationen
         max_years: Jahre pro Episode
+        resume_from_checkpoint: Pfad zu Checkpoint (None = von vorne)
         
     Returns:
         str: Pfad zum finalen Checkpoint
@@ -80,6 +115,13 @@ def train_government(num_iterations=20, max_years=5):
     print("="*60)
     print(f"Zeitstruktur: {max_years} Jahre/Episode = {365*max_years} Steps")
     print(f"Training: {num_iterations} Iterationen")
+    
+    if resume_from_checkpoint:
+        print(f"\n🔄 Resume: Training wird fortgesetzt")
+        print(f"   Checkpoint: ...{resume_from_checkpoint[-50:]}")
+    else:
+        print(f"\n🆕 Neues Training (von Null)")
+    
     print(f"\n🚫 Strg+C: Sicheres Beenden (speichert Model)")
     print("="*60 + "\n")
     
@@ -91,7 +133,7 @@ def train_government(num_iterations=20, max_years=5):
         ignore_reinit_error=True,
         num_cpus=4,
         log_to_driver=False,
-        logging_level="ERROR"  # Nur Errors
+        logging_level="ERROR"
     )
     
     # PPO Config
@@ -125,8 +167,14 @@ def train_government(num_iterations=20, max_years=5):
         )
     )
     
-    # Algo erstellen
-    algo = config.build()
+    # Algo erstellen oder laden
+    if resume_from_checkpoint:
+        print("📥 Lade Checkpoint...")
+        algo = PPO.from_checkpoint(resume_from_checkpoint)
+        print("✅ Checkpoint geladen!\n")
+    else:
+        algo = config.build()
+    
     algo_global = algo  # Für Signal Handler
     
     print("🚀 Training startet...\n")
@@ -142,9 +190,10 @@ def train_government(num_iterations=20, max_years=5):
             # Metriken extrahieren
             episode_reward_mean = result.get('episode_reward_mean', 0)
             episode_len_mean = result.get('episode_len_mean', 0)
+            total_iterations = result.get('training_iteration', i+1)
             
             # Output
-            print(f"📊 Iteration {i+1:3d}/{num_iterations} | "
+            print(f"📊 Iteration {total_iterations:3d} | "
                   f"Reward: {episode_reward_mean:9.2f} | "
                   f"Years: {episode_len_mean/365:.1f}")
             
@@ -155,9 +204,9 @@ def train_government(num_iterations=20, max_years=5):
                 print(f"   ✅ Neuer Bestwert!")
             
             # Alle 5 Iterationen: Checkpoint
-            if (i + 1) % 5 == 0:
+            if total_iterations % 5 == 0:
                 checkpoint = algo.save()
-                print(f"   💾 Checkpoint ({i+1}/{num_iterations})\n")
+                print(f"   💾 Checkpoint ({total_iterations})\n")
         
         # Normale Beendigung
         final_checkpoint = algo.save()
@@ -189,22 +238,35 @@ if __name__ == "__main__":
     # === HIER KONFIGURIEREN ===
     NUM_ITERATIONS = 20      # Erhöhe für Über-Nacht-Training (z.B. 200)
     MAX_YEARS = 5            # Jahre pro Episode (z.B. 10 für länger)
+    RESUME = True            # True = fortsetzen, False = neu starten
     
     print(f"Iterationen: {NUM_ITERATIONS}")
     print(f"Jahre/Episode: {MAX_YEARS}")
+    print(f"Resume: {'Ja (sucht letzten Checkpoint)' if RESUME else 'Nein (neues Training)'}")
     print(f"Geschätzte Dauer: ~{NUM_ITERATIONS * 0.25:.0f} Minuten")
     print("\nTipp: Für Über-Nacht-Training:")
     print("  NUM_ITERATIONS = 200")
     print("  MAX_YEARS = 10")
+    print("  RESUME = True")
     print("="*60 + "\n")
     
+    # Checkpoint finden falls Resume aktiviert
+    checkpoint = None
+    if RESUME:
+        checkpoint = find_latest_checkpoint()
+        if checkpoint:
+            print(f"🔍 Checkpoint gefunden: ...{checkpoint[-50:]}")
+        else:
+            print("⚠️  Kein Checkpoint gefunden, starte neues Training")
+    
     # Training starten
-    checkpoint = train_government(
+    final_checkpoint = train_government(
         num_iterations=NUM_ITERATIONS,
-        max_years=MAX_YEARS
+        max_years=MAX_YEARS,
+        resume_from_checkpoint=checkpoint
     )
     
     print(f"\n🎯 Nächste Schritte:")
     print(f"1. Model evaluieren: python tests/test_scenarios.py")
     print(f"2. Frontend testen: streamlit run frontend/app.py")
-    print(f"3. Checkpoint-Pfad: {checkpoint}\n")
+    print(f"3. Weiter trainieren: RESUME = True setzen\n")
