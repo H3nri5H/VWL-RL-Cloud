@@ -19,7 +19,6 @@ import warnings
 warnings.filterwarnings('ignore')
 import os
 os.environ['PYTHONWARNINGS'] = 'ignore::DeprecationWarning'
-os.environ['RAY_DEDUP_LOGS'] = '0'  # Alle Logs anzeigen (oder '1' für dedupliziert)
 
 import ray
 from ray.rllib.algorithms.ppo import PPOConfig
@@ -86,6 +85,7 @@ def train_government(num_iterations=20, max_years=5):
     
     # Training Loop
     best_reward = float('-inf')
+    checkpoint_path = None
     
     for i in range(num_iterations):
         result = algo.train()
@@ -102,13 +102,13 @@ def train_government(num_iterations=20, max_years=5):
         # Checkpoint bei Verbesserung
         if episode_reward_mean > best_reward:
             best_reward = episode_reward_mean
-            checkpoint_dir = algo.save()
-            print(f"   ✅ Neuer Bestwert! Checkpoint: {checkpoint_dir.split('/')[-1]}")
+            checkpoint_path = algo.save()
+            print(f"   ✅ Neuer Bestwert!")
         
         # Alle 5 Iterationen: Checkpoint
         if (i + 1) % 5 == 0:
-            checkpoint_dir = algo.save()
-            print(f"   💾 Checkpoint ({i+1}/{num_iterations})\n")
+            checkpoint_path = algo.save()
+            print(f"   💾 Checkpoint gespeichert\n")
     
     # Final Checkpoint
     final_checkpoint = algo.save()
@@ -116,7 +116,7 @@ def train_government(num_iterations=20, max_years=5):
     print("\n" + "="*60)
     print("✅ Training abgeschlossen!")
     print(f"Bester Reward: {best_reward:.2f}")
-    print(f"Final Checkpoint: {final_checkpoint}")
+    print(f"Model gespeichert unter: {final_checkpoint}")
     print("="*60 + "\n")
     
     # Aufräumen
@@ -139,4 +139,4 @@ if __name__ == "__main__":
     print(f"\n🎯 Nächste Schritte:")
     print(f"1. Model evaluieren: python tests/test_scenarios.py")
     print(f"2. Frontend testen: streamlit run frontend/app.py")
-    print(f"3. Model-Pfad: {checkpoint}\n")
+    print(f"3. Model laden für Inference\n")
