@@ -1,39 +1,61 @@
+"""Volkswirtschafts-Environment für Reinforcement Learning
+
+Dieses Environment simuliert eine vereinfachte Volkswirtschaft mit:
+- 10 Firmen (produzieren, setzen Preise, zahlen Löhne)
+- 50 Haushalten (konsumieren, sparen)
+- 1 Regierung (Steuern, Staatsausgaben, Zinspolitik)
+
+Zeitstruktur:
+- 1 Step = 1 Tag
+- 1 Episode = 365 Tage = 1 Jahr
+- Training über mehrere Jahre (Episoden)
+"""
+
 import gymnasium as gym
 import numpy as np
 from gymnasium import spaces
 
 
 class EconomyEnv(gym.Env):
-    """
-    Volkswirtschafts-Simulation mit Multi-Agent RL
+    """Gymnasium-kompatibles Wirtschafts-Environment
     
-    Agents:
-    - 10 Firmen (RL): Preis, Löhne, Mitarbeiteranzahl
-    - 50 Haushalte (regelbasiert): Konsum basierend auf Einkommen
-    - 1 Regierung (RL): Steuern, Staatsausgaben, Zinsen
-    
-    Observation: [BIP, Inflation, Arbeitslosigkeit, Kapital, ...]
-    Action: [Steuersatz, Staatsausgaben, Zinssatz] für Regierung
-    Reward: Normalisiertes BIP-Wachstum + Stabilitäts-Penalty
+    Der RL-Agent steuert die Regierung.
+    Firmen und Haushalte sind (vorerst) regelbasiert.
     """
     
-    metadata = {"render_modes": ["human"], "render_fps": 4}
+    metadata = {'render_modes': []}
     
-    def __init__(self, num_firms=10, num_households=50, render_mode=None):
+    def __init__(self, max_years=5):
         super().__init__()
         
-        self.num_firms = num_firms
-        self.num_households = num_households
-        self.render_mode = render_mode
+        # === ZEITSTRUKTUR ===
+        self.days_per_year = 365
+        self.max_years = max_years
+        self.max_steps = self.days_per_year * self.max_years
+        self.current_day = 0
+        self.current_year = 1
+        self.current_step = 0
         
-        # Observation Space: [BIP, Inflation, Arbeitslosigkeit, Durchschnittslohn, Kapital_gesamt]
+        # Jahresmetriken (für Aggregation)
+        self.yearly_metrics = {
+            'bip': [],
+            'inflation': [],
+            'unemployment': [],
+            'deficit': []
+        }
+        
+        # === WIRTSCHAFTS-AKTEURE ===
+        self.num_firms = 10
+        self.num_households = 50
+        
+        # Observation Space: [BIP, Inflation, Arbeitslosigkeit, Staatsschulden, Zinssatz]
         self.observation_space = spaces.Box(
             low=np.array([0, -0.5, 0, 0, 0], dtype=np.float32),
-            high=np.array([10000, 0.5, 1.0, 1000, 100000], dtype=np.float32),
+            high=np.array([100000, 0.5, 1.0, 50000, 0.3], dtype=np.float32),
             dtype=np.float32
         )
         
-        # Action Space (für Regierung): [Steuersatz (0-0.5), Staatsausgaben (0-1000), Zinssatz (0-0.2)]
+        # Action Space: [Steuersatz, Staatsausgaben, Zinssatz]
         self.action_space = spaces.Box(
             low=np.array([0.0, 0.0, 0.0], dtype=np.float32),
             high=np.array([0.5, 1000.0, 0.2], dtype=np.float32),
@@ -41,143 +63,256 @@ class EconomyEnv(gym.Env):
         )
         
         # Wirtschafts-Zustand
+        self.firms = []
+        self.households = []
+        self.government = {
+            'debt': 0.0,
+            'deficit': 0.0,
+            'tax_revenue': 0.0,
+            'spending': 0.0
+        }
+        
+        # Makro-Variablen
         self.bip = 0.0
+        self.bip_last = 0.0
         self.inflation = 0.0
-        self.unemployment = 0.0
-        self.avg_wage = 50.0
-        self.total_capital = 0.0
-        
-        # Firmen-Zustand (vereinfacht, regelbasiert für v1)
-        self.firm_prices = np.random.uniform(10, 20, num_firms)
-        self.firm_wages = np.random.uniform(40, 60, num_firms)
-        self.firm_employees = np.random.randint(3, 8, num_firms)
-        self.firm_capital = np.random.uniform(500, 1500, num_firms)
-        
-        # Haushalts-Zustand (regelbasiert)
-        self.household_savings = np.random.uniform(100, 500, num_households)
-        self.household_employed = np.random.choice([True, False], num_households, p=[0.95, 0.05])
-        
-        self.timestep = 0
-        self.max_steps = 100
+        self.interest_rate = 0.05
+        self.avg_price_last = 0.0
         
     def reset(self, seed=None, options=None):
+        """Reset Environment zu Anfangszustand"""
         super().reset(seed=seed)
         
-        # Reset Wirtschaft
-        self.bip = 1000.0
+        # Zeit zurücksetzen
+        self.current_day = 0
+        self.current_year = 1
+        self.current_step = 0
+        self.yearly_metrics = {'bip': [], 'inflation': [], 'unemployment': [], 'deficit': []}
+        
+        # Firmen initialisieren
+        self.firms = [
+            {
+                'capital': 1000.0 + np.random.randn() * 100,
+                'employees': 5,
+                'price': 10.0,
+                'inventory': 50,
+                'revenue': 0.0,
+                'costs': 0.0
+            }
+            for _ in range(self.num_firms)
+        ]
+        
+        # Haushalte initialisieren
+        self.households = [
+            {
+                'cash': 500.0 + np.random.randn() * 50,
+                'income': 50.0,
+                'employed': True
+            }
+            for _ in range(self.num_households)
+        ]
+        
+        # Regierung zurücksetzen
+        self.government = {
+            'debt': 1000.0,
+            'deficit': 0.0,
+            'tax_revenue': 0.0,
+            'spending': 500.0
+        }
+        
+        # Makro-Variablen
+        self.bip = 5000.0
+        self.bip_last = 5000.0
         self.inflation = 0.02
-        self.unemployment = 0.05
-        self.avg_wage = 50.0
-        self.total_capital = np.sum(self.firm_capital)
+        self.interest_rate = 0.05
+        self.avg_price_last = 10.0
         
-        self.timestep = 0
-        
-        obs = self._get_obs()
+        obs = self._get_observation()
         info = self._get_info()
         
         return obs, info
     
     def step(self, action):
-        # Action: [Steuersatz, Staatsausgaben, Zinssatz]
-        tax_rate = np.clip(action[0], 0.0, 0.5)
-        gov_spending = np.clip(action[1], 0.0, 1000.0)
-        interest_rate = np.clip(action[2], 0.0, 0.2)
+        """Simuliere einen Tag (1 Step)"""
+        # Action clipping (Sicherheit)
+        action = np.clip(action, self.action_space.low, self.action_space.high)
+        tax_rate, gov_spending, interest_rate = action
         
-        # 1. Firmen-Produktion (vereinfacht)
-        total_production = 0.0
-        for i in range(self.num_firms):
-            # Produktion = Mitarbeiter * Produktivität * Kapital-Faktor
-            productivity = 20.0
-            capital_factor = 1.0 + (self.firm_capital[i] / 1000.0) * 0.1
-            production = self.firm_employees[i] * productivity * capital_factor
+        self.interest_rate = float(interest_rate)
+        
+        # === 1. FIRMEN: Produzieren & Preise setzen ===
+        total_production = 0
+        total_labor_cost = 0
+        
+        for firm in self.firms:
+            # Produktion (10 Einheiten pro Mitarbeiter pro Tag)
+            production = firm['employees'] * 10
+            firm['inventory'] += production
             total_production += production
             
-            # Kosten: Löhne
-            labor_cost = self.firm_employees[i] * self.firm_wages[i]
-            
-            # Profit (vereinfacht)
-            revenue = production * self.firm_prices[i]
-            profit = revenue - labor_cost - (self.firm_capital[i] * interest_rate)
-            
-            # Kapital-Update
-            self.firm_capital[i] = max(0, self.firm_capital[i] + profit * 0.1)
+            # Löhne zahlen (50€ pro Mitarbeiter pro Tag)
+            labor_cost = firm['employees'] * 50
+            firm['capital'] -= labor_cost
+            firm['costs'] = labor_cost
+            total_labor_cost += labor_cost
         
-        # 2. Haushalts-Konsum
-        total_consumption = 0.0
+        # === 2. HAUSHALTE: Einkommen & Konsum ===
+        total_consumption = 0
         employed_count = 0
-        for i in range(self.num_households):
-            if self.household_employed[i]:
-                # Einkommen = Durchschnittslohn
-                income = self.avg_wage
+        
+        for household in self.households:
+            if household['employed']:
+                # Einkommen aus Arbeit
+                household['cash'] += household['income']
                 employed_count += 1
-            else:
-                income = gov_spending / self.num_households  # Arbeitslosengeld
             
-            # Konsum = 80% Einkommen, 20% Sparen
-            consumption = income * 0.8
-            savings = income * 0.2
-            
-            self.household_savings[i] += savings
+            # Konsum (80% vom Cash)
+            consumption = household['cash'] * 0.8
+            household['cash'] -= consumption
             total_consumption += consumption
         
-        # 3. Makro-Indikatoren berechnen
-        prev_bip = self.bip
-        self.bip = total_production * 0.8 + total_consumption * 0.2  # Vereinfachtes BIP
-        self.total_capital = np.sum(self.firm_capital)
-        self.avg_wage = np.mean(self.firm_wages)
-        self.unemployment = 1.0 - (employed_count / self.num_households)
+        # === 3. MARKT: Firmen verkaufen an Haushalte ===
+        avg_price = np.mean([f['price'] for f in self.firms])
+        quantity_demanded = total_consumption / avg_price if avg_price > 0 else 0
         
-        # Inflation (vereinfacht): Preis-Änderung
-        avg_price = np.mean(self.firm_prices)
-        self.inflation = (avg_price - 15.0) / 15.0 * 0.1  # Ziel-Preis: 15
+        # Revenue an Firmen verteilen (proportional zu Inventory)
+        total_inventory = sum(f['inventory'] for f in self.firms)
         
-        # 4. Reward-Berechnung (für Regierung)
-        bip_growth = (self.bip - prev_bip) / max(prev_bip, 1.0)
+        for firm in self.firms:
+            if total_inventory > 0:
+                firm_share = firm['inventory'] / total_inventory
+                revenue = total_consumption * firm_share
+                firm['revenue'] = revenue
+                firm['capital'] += revenue
+                
+                # Inventory reduzieren
+                sold = min(firm['inventory'], quantity_demanded * firm_share)
+                firm['inventory'] -= sold
         
-        # Reward: BIP-Wachstum + Stabilitäts-Bonus - Penalty für hohe Arbeitslosigkeit
-        reward = bip_growth * 100.0  # Scale für RL
-        reward -= abs(self.inflation) * 50.0  # Inflations-Penalty
-        reward -= self.unemployment * 200.0  # Arbeitslosigkeits-Penalty
-        reward -= abs(tax_rate - 0.3) * 10.0  # Penalty für extreme Steuern
+        # === 4. REGIERUNG: Steuern & Ausgaben ===
+        # Steuern von Firmen
+        tax_revenue = sum(max(0, f['revenue'] - f['costs']) * tax_rate for f in self.firms)
+        self.government['tax_revenue'] = tax_revenue
         
-        # Normalisierung: -20 bis +10
-        reward = np.clip(reward, -20.0, 10.0)
+        # Staatsausgaben
+        self.government['spending'] = float(gov_spending)
         
-        # 5. Episode Ende?
-        self.timestep += 1
-        terminated = self.timestep >= self.max_steps
+        # Defizit/Überschuss
+        deficit = gov_spending - tax_revenue
+        self.government['deficit'] = deficit
+        self.government['debt'] += deficit
+        
+        # Staatsausgaben fließen in Wirtschaft (vereinfacht: an Haushalte)
+        if self.num_households > 0:
+            per_household = gov_spending / self.num_households
+            for household in self.households:
+                household['cash'] += per_household
+        
+        # === 5. MAKRO-VARIABLEN BERECHNEN ===
+        # BIP (Vereinfacht: Gesamtproduktion * Durchschnittspreis)
+        self.bip = total_production * avg_price
+        
+        # BIP-Wachstum
+        bip_growth = (self.bip / self.bip_last - 1.0) if self.bip_last > 0 else 0.0
+        self.bip_last = self.bip
+        
+        # Inflation (Preisänderung)
+        self.inflation = (avg_price / self.avg_price_last - 1.0) if self.avg_price_last > 0 else 0.0
+        self.avg_price_last = avg_price
+        
+        # Arbeitslosigkeit
+        unemployment = 1.0 - (employed_count / self.num_households)
+        
+        # === 6. REWARD BERECHNEN ===
+        reward = self._compute_reward(bip_growth, unemployment, self.inflation, deficit)
+        
+        # === 7. ZEIT FORTSCHREITEN ===
+        self.current_step += 1
+        self.current_day += 1
+        
+        # Jahreswechsel
+        if self.current_day >= self.days_per_year:
+            self._year_end_summary()
+            self.current_day = 0
+            self.current_year += 1
+        
+        # Episode Ende
+        terminated = (self.current_step >= self.max_steps)
         truncated = False
         
-        # Crash-Bedingungen
-        if self.bip < 100 or self.unemployment > 0.5:
-            terminated = True
-            reward = -20.0  # Crash-Penalty
-        
-        obs = self._get_obs()
+        obs = self._get_observation()
         info = self._get_info()
+        info['bip_growth'] = bip_growth
+        info['day'] = self.current_day
+        info['year'] = self.current_year
         
         return obs, reward, terminated, truncated, info
     
-    def _get_obs(self):
-        return np.array([
-            self.bip,
-            self.inflation,
-            self.unemployment,
-            self.avg_wage,
-            self.total_capital
+    def _year_end_summary(self):
+        """Jahresabschluss: Metriken sammeln"""
+        self.yearly_metrics['bip'].append(self.bip)
+        self.yearly_metrics['inflation'].append(self.inflation)
+        
+        employed = sum(1 for h in self.households if h['employed'])
+        unemployment = 1.0 - (employed / self.num_households)
+        self.yearly_metrics['unemployment'].append(unemployment)
+        self.yearly_metrics['deficit'].append(self.government['deficit'])
+        
+        print(f"\n📅 Jahr {self.current_year} abgeschlossen:")
+        print(f"   BIP: {self.bip:.0f}€")
+        print(f"   Inflation: {self.inflation:.2%}")
+        print(f"   Arbeitslosigkeit: {unemployment:.1%}")
+        print(f"   Staatsdefizit: {self.government['deficit']:.0f}€")
+    
+    def _compute_reward(self, bip_growth, unemployment, inflation, deficit):
+        """Reward-Funktion für Regierung
+        
+        Ziele:
+        - BIP-Wachstum maximieren (Wohlstand)
+        - Arbeitslosigkeit minimieren (sozial)
+        - Inflation bei ~2% halten (Stabilität)
+        - Staatsdefizit gering halten (Nachhaltigkeit)
+        """
+        reward = (
+            + bip_growth * 10.0           # BIP-Wachstum belohnen
+            - unemployment * 20.0         # Arbeitslosigkeit stark bestrafen
+            - abs(inflation) * 15.0       # Inflation (egal ob +/-) bestrafen
+            - abs(deficit) * 0.01         # Defizit leicht bestrafen
+        )
+        
+        # Clipping (verhindert extreme Rewards)
+        reward = np.clip(reward, -20.0, 10.0)
+        
+        return float(reward)
+    
+    def _get_observation(self):
+        """Aktuellen State für RL-Agent"""
+        employed_count = sum(1 for h in self.households if h['employed'])
+        unemployment = 1.0 - (employed_count / self.num_households)
+        
+        obs = np.array([
+            self.bip / 10000.0,              # Normalisiert
+            self.inflation,                   # -0.5 bis 0.5
+            unemployment,                     # 0 bis 1
+            self.government['debt'] / 10000.0, # Normalisiert
+            self.interest_rate                # 0 bis 0.2
         ], dtype=np.float32)
+        
+        return obs
     
     def _get_info(self):
+        """Zusätzliche Infos (für Logging)"""
+        employed_count = sum(1 for h in self.households if h['employed'])
+        unemployment = 1.0 - (employed_count / self.num_households)
+        
         return {
-            "bip": float(self.bip),
-            "inflation": float(self.inflation),
-            "unemployment": float(self.unemployment),
-            "avg_wage": float(self.avg_wage),
-            "timestep": self.timestep
+            'bip': float(self.bip),
+            'inflation': float(self.inflation),
+            'unemployment': float(unemployment),
+            'debt': float(self.government['debt']),
+            'deficit': float(self.government['deficit']),
+            'interest_rate': float(self.interest_rate),
+            'step': self.current_step,
+            'year': self.current_year,
+            'day': self.current_day
         }
-    
-    def render(self):
-        if self.render_mode == "human":
-            print(f"\n=== Timestep {self.timestep} ===")
-            print(f"BIP: {self.bip:.2f} | Inflation: {self.inflation:.3f} | Arbeitslosigkeit: {self.unemployment:.2%}")
-            print(f"Durchschnittslohn: {self.avg_wage:.2f} | Gesamt-Kapital: {self.total_capital:.2f}")
