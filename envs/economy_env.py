@@ -54,9 +54,10 @@ class EconomyEnv(gym.Env):
         self.num_households = 50
         
         # Observation Space: [BIP, Inflation, Arbeitslosigkeit, Staatsschulden, Zinssatz]
+        # WICHTIG: BIP und Debt können NEGATIV sein!
         self.observation_space = spaces.Box(
-            low=np.array([0, -0.5, 0, 0, 0], dtype=np.float32),
-            high=np.array([100000, 0.5, 1.0, 50000, 0.3], dtype=np.float32),
+            low=np.array([-10.0, -0.5, 0, -10.0, 0], dtype=np.float32),  # debt/bip können negativ!
+            high=np.array([10.0, 0.5, 1.0, 10.0, 0.3], dtype=np.float32),
             dtype=np.float32
         )
         
@@ -296,11 +297,11 @@ class EconomyEnv(gym.Env):
         unemployment = 1.0 - (employed_count / self.num_households)
         
         obs = np.array([
-            self.bip / 10000.0,              # Normalisiert
-            self.inflation,                   # -0.5 bis 0.5
-            unemployment,                     # 0 bis 1
-            self.government['debt'] / 10000.0, # Normalisiert
-            self.interest_rate                # 0 bis 0.2
+            np.clip(self.bip / 10000.0, -10.0, 10.0),              # Normalisiert + geclippt
+            np.clip(self.inflation, -0.5, 0.5),                     # -50% bis +50%
+            unemployment,                                            # 0 bis 1
+            np.clip(self.government['debt'] / 10000.0, -10.0, 10.0), # Normalisiert + geclippt
+            self.interest_rate                                       # 0 bis 0.2
         ], dtype=np.float32)
         
         return obs
