@@ -1,4 +1,10 @@
-"""Szenario-Tests für verschiedene Wirtschaftslagen"""
+"""Szenario-Tests für verschiedene Wirtschaftslagen (ohne pytest)"""
+import sys
+from pathlib import Path
+
+# PYTHONPATH Fix
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
 import numpy as np
 from envs.economy_env import EconomyEnv
 
@@ -74,4 +80,10 @@ def test_scenarios():
 
 
 if __name__ == "__main__":
-    test_scenarios()
+    try:
+        test_scenarios()
+    except Exception as e:
+        print(f"\n❌ Error: {e}")
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)

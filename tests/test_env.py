@@ -1,5 +1,10 @@
-"""Tests für EconomyEnv"""
-import pytest
+"""Tests für EconomyEnv (ohne pytest)"""
+import sys
+from pathlib import Path
+
+# PYTHONPATH Fix
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
 import numpy as np
 from envs.economy_env import EconomyEnv
 
@@ -105,22 +110,33 @@ def test_env_spaces():
 if __name__ == "__main__":
     print("\n🧪 Running EconomyEnv Tests...\n")
     
-    test_env_creation()
-    print("✅ test_env_creation")
-    
-    test_env_reset()
-    print("✅ test_env_reset")
-    
-    test_env_step()
-    print("✅ test_env_step")
-    
-    test_env_episode()
-    print("✅ test_env_episode")
-    
-    test_env_action_clipping()
-    print("✅ test_env_action_clipping")
-    
-    test_env_spaces()
-    print("✅ test_env_spaces")
-    
-    print("\n🎉 All tests passed!")
+    try:
+        test_env_creation()
+        print("✅ test_env_creation")
+        
+        test_env_reset()
+        print("✅ test_env_reset")
+        
+        test_env_step()
+        print("✅ test_env_step")
+        
+        test_env_episode()
+        print("✅ test_env_episode")
+        
+        test_env_action_clipping()
+        print("✅ test_env_action_clipping")
+        
+        test_env_spaces()
+        print("✅ test_env_spaces")
+        
+        print("\n🎉 All tests passed!")
+        sys.exit(0)
+        
+    except AssertionError as e:
+        print(f"\n❌ Test failed: {e}")
+        sys.exit(1)
+    except Exception as e:
+        print(f"\n❌ Unexpected error: {e}")
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
