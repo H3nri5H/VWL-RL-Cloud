@@ -7,6 +7,141 @@ DHSH Module: Fortgeschrittene KI-Anwendungen & Cloud & Big Data | Januar 2026
 
 ---
 
+## 🚀 **SUPER-QUICK START** (10 Minuten, KEINE Vorkenntnisse nötig!)
+
+### ✅ **Option A: Windows Automatik-Setup** (EMPFOHLEN)
+
+```cmd
+# 1. Repo herunterladen
+git clone https://github.com/H3nri5H/VWL-RL-Cloud.git
+cd VWL-RL-Cloud
+
+# 2. Doppelklick auf setup.bat (ODER im Terminal:)
+setup.bat
+
+# Das war's! Script installiert alles automatisch:
+#  - Prüft Python 3.11 (zeigt Download-Link falls fehlend)
+#  - Erstellt venv
+#  - Installiert alle Pakete
+#  - Führt Tests aus
+```
+
+**Setup.bat macht automatisch:**
+- ✅ Python 3.11 Check (mit Installations-Anleitung)
+- ✅ Virtual Environment erstellen
+- ✅ Pip upgrade
+- ✅ Alle Dependencies installieren (~5 Min)
+- ✅ Tests ausführen
+- ✅ Bereit!
+
+---
+
+### ✅ **Option B: Python-Setup** (Alle Plattformen)
+
+```bash
+# 1. Repo klonen
+git clone https://github.com/H3nri5H/VWL-RL-Cloud.git
+cd VWL-RL-Cloud
+
+# 2. Automatisches Setup
+python setup.py
+
+# Alles wird automatisch gemacht!
+```
+
+---
+
+### ✅ **Option C: Manuelles Setup** (Falls du es genau wissen willst)
+
+#### **Schritt 1: Python 3.11 installieren** (falls nicht vorhanden)
+
+**Windows:**
+```cmd
+# Prüfe ob Python 3.11 installiert:
+py -3.11 --version
+
+# Falls NICHT installiert:
+# 1. Öffne: https://www.python.org/downloads/release/python-3119/
+# 2. Download: "Windows installer (64-bit)"
+# 3. Installiere mit "☑️ Add python.exe to PATH"
+
+# ODER via winget (Windows 10/11):
+winget install -e --id Python.Python.3.11
+```
+
+**Linux/Mac:**
+```bash
+# Ubuntu/Debian:
+sudo apt update
+sudo apt install python3.11 python3.11-venv
+
+# Mac (Homebrew):
+brew install python@3.11
+```
+
+#### **Schritt 2: Repository klonen**
+```bash
+git clone https://github.com/H3nri5H/VWL-RL-Cloud.git
+cd VWL-RL-Cloud
+```
+
+#### **Schritt 3: Virtual Environment**
+```bash
+# Windows:
+py -3.11 -m venv .venv
+.venv\Scripts\activate
+
+# Linux/Mac:
+python3.11 -m venv .venv
+source .venv/bin/activate
+```
+
+**VS Code Setup:**
+- `Ctrl+Shift+P` → "Python: Select Interpreter"
+- Wähle: `.venv/Scripts/python.exe` (Win) oder `.venv/bin/python` (Linux/Mac)
+
+#### **Schritt 4: Dependencies installieren**
+```bash
+# Pip upgraden
+python -m pip install --upgrade pip
+
+# Alle Pakete installieren (~5 Minuten)
+pip install -r requirements.txt
+```
+
+#### **Schritt 5: Tests**
+```bash
+# PYTHONPATH setzen (wichtig!)
+# Windows:
+set PYTHONPATH=.
+# Linux/Mac:
+export PYTHONPATH=.
+
+# RLlib Test
+python -c "import ray; from ray.rllib.algorithms.ppo import PPOConfig; print('✅ RLlib ready:', ray.__version__)"
+
+# Environment Tests
+python tests/test_env.py
+```
+
+---
+
+## 🎉 **App starten**
+
+```bash
+# Frontend (Web-Interface)
+streamlit run frontend/app.py
+# → Öffnet http://localhost:8501
+
+# Training (RL-Agent trainieren, ~10 Min)
+python train/train_single.py
+
+# Szenarien testen
+python tests/test_scenarios.py
+```
+
+---
+
 ## 🎯 Projekt-Übersicht
 
 ### Multi-Agent RL-System
@@ -25,82 +160,97 @@ DHSH Module: Fortgeschrittene KI-Anwendungen & Cloud & Big Data | Januar 2026
 - **Frontend**: Streamlit + Plotly
 - **Backend**: FastAPI + Uvicorn
 - **Cloud**: Google Cloud Run, Cloud Storage
-- **Containerization**: Docker
 
 ---
 
-## 🚀 Quick Start (5 Minuten)
+## 🔧 **Troubleshooting**
 
-### 1. Repository klonen
+### ❌ **Problem: `py -3.11` nicht gefunden**
+
+**Lösung:**
+1. Python 3.11 installieren: https://python.org/downloads/release/python-3119/
+2. **Wichtig**: ☑️ "Add python.exe to PATH" aktivieren!
+3. Terminal **neu starten**
+4. Test: `py -3.11 --version`
+
+---
+
+### ❌ **Problem: `ModuleNotFoundError: No module named 'envs'`**
+
+**Lösung:**
 ```bash
-git clone https://github.com/H3nri5H/VWL-RL-Cloud.git
-cd VWL-RL-Cloud
-code .  # VS Code öffnen
+# Windows:
+set PYTHONPATH=.
+
+# Linux/Mac:
+export PYTHONPATH=.
+
+# Dann nochmal:
+python tests/test_env.py
 ```
 
-### 2. Python 3.11 Virtual Environment
-```bash
-# Windows
-py -3.11 -m venv .venv
-.venv\Scripts\activate
-
-# Linux/Mac
-python3.11 -m venv .venv
-source .venv/bin/activate
+**Permanent (VS Code):**
+- Erstelle `.vscode/settings.json`:
+```json
+{
+    "python.analysis.extraPaths": ["."],
+    "terminal.integrated.env.windows": {
+        "PYTHONPATH": "${workspaceFolder}"
+    }
+}
 ```
 
-**VS Code Setup:**
-- `Ctrl+Shift+P` → "Python: Select Interpreter"
-- Wähle: `.venv/Scripts/python.exe` (Windows) oder `.venv/bin/python` (Linux/Mac)
+---
 
-### 3. Dependencies installieren
+### ❌ **Problem: Ray/RLlib Installation Fehler**
+
+**Lösung:**
 ```bash
-pip install --upgrade pip
+# Cache löschen und nochmal:
+pip cache purge
+pip install --no-cache-dir "ray[rllib]==2.10.0"
+
+# Falls weiterhin Fehler:
+pip install --upgrade pip setuptools wheel
 pip install -r requirements.txt
 ```
 
-⏱️ **Installation dauert ~5 Minuten** (Ray/RLlib sind groß)
+---
 
-### 4. Tests ausführen
+### ❌ **Problem: Gymnasium Version Conflict**
+
+**Lösung:**
 ```bash
-# Environment testen
-python -c "import ray; from ray.rllib.algorithms.ppo import PPOConfig; print('✅ RLlib ready:', ray.__version__)"
-
-# Unit Tests
-python tests/test_env.py
-
-# Szenario-Tests
-python tests/test_scenarios.py
+# Exakte Versionen erzwingen:
+pip uninstall gymnasium ray -y
+pip install gymnasium==0.28.1 "ray[rllib]==2.10.0"
 ```
 
-### 5. Training starten
+**Grund**: Ray 2.10 braucht exakt Gymnasium 0.28.1 (bereits in requirements.txt gefixt)
+
+---
+
+### ❌ **Problem: VS Code erkennt venv nicht**
+
+**Lösung:**
+1. `Ctrl+Shift+P` → "Python: Select Interpreter"
+2. Falls `.venv` nicht erscheint: "Enter interpreter path..."
+3. Manuell auswählen:
+   - Windows: `.venv\Scripts\python.exe`
+   - Linux/Mac: `.venv/bin/python`
+4. Terminal neu starten: `Ctrl+Shift+`` `
+
+---
+
+### ❌ **Problem: Streamlit startet nicht**
+
+**Lösung:**
 ```bash
-# Single-Agent Training (Regierung lernt Wirtschaftspolitik)
-python train/train_single.py
+# Port 8501 belegt?
+streamlit run frontend/app.py --server.port 8502
 
-# Erwartet: 
-# - 50 Iterationen
-# - Reward steigt von ~-15 auf +5
-# - Model wird in models/ gespeichert
-# - Dauer: ~10 Minuten (CPU)
-```
-
-### 6. Frontend lokal starten
-```bash
-streamlit run frontend/app.py
-
-# Öffnet Browser auf http://localhost:8501
-# - Slider: Steuersatz, Staatsausgaben, Zinsen
-# - Szenarien: Normal, Rezession, Boom, Inflation
-# - Live-Plots: BIP, Arbeitslosigkeit, Inflation
-```
-
-### 7. Backend lokal starten (optional)
-```bash
-uvicorn backend.serve:app --reload
-
-# API läuft auf http://localhost:8000
-# Docs: http://localhost:8000/docs
+# Browser öffnet nicht automatisch?
+streamlit run frontend/app.py --server.headless false
 ```
 
 ---
@@ -110,7 +260,9 @@ uvicorn backend.serve:app --reload
 ```
 VWL-RL-Cloud/
 ├── README.md                    # Diese Datei
-├── requirements.txt             # Alle Dependencies
+├── requirements.txt             # Alle Dependencies (gefixt!)
+├── setup.py                     # Automatisches Setup (neu!)
+├── setup.bat                    # Windows One-Click Setup (neu!)
 ├── .gitignore                   # Git-Ausschlüsse
 ├── .env.example                 # Template für GCP-Keys
 │
@@ -131,10 +283,10 @@ VWL-RL-Cloud/
 │   ├── app.py                  # Streamlit App
 │   └── Dockerfile              # Frontend Container
 │
-├── tests/                       # Tests
+├── tests/                       # Tests (ohne pytest!)
 │   ├── __init__.py
-│   ├── test_env.py             # Environment Tests
-│   └── test_scenarios.py       # Wirtschafts-Szenarien
+│   ├── test_env.py             # Environment Tests (gefixt!)
+│   └── test_scenarios.py       # Wirtschafts-Szenarien (gefixt!)
 │
 └── deploy/                      # Cloud Deployment
     ├── deploy.sh               # GCP Deploy Script
@@ -143,211 +295,73 @@ VWL-RL-Cloud/
 
 ---
 
-## 🧪 Tests
-
-### Environment Tests
-```bash
-python tests/test_env.py
-
-# Testet:
-# ✅ Environment Creation
-# ✅ Reset Funktionalität
-# ✅ Step Funktionalität
-# ✅ Episode Durchlauf
-# ✅ Action Clipping
-# ✅ Space Definitions
-```
-
-### Szenario Tests
-```bash
-python tests/test_scenarios.py
-
-# Testet 9 Szenarien:
-# 1. Normal (Baseline)
-# 2. Niedrige Steuern
-# 3. Hohe Steuern
-# 4. Hohe Staatsausgaben
-# 5. Niedrige Staatsausgaben
-# 6. Hohe Zinsen
-# 7. Niedrige Zinsen
-# 8. Austerität (hohe Steuern + niedrige Ausgaben)
-# 9. Expansion (niedrige Steuern + hohe Ausgaben)
-#
-# Output: Ranking nach Total Reward
-```
-
----
-
-## 🎓 Modul-Anforderungen
-
-### ✅ Fortgeschrittene KI-Anwendungen
-- [x] Multi-Agent Reinforcement Learning (RLlib)
-- [x] Custom Gymnasium Environment
-- [x] PPO-Algorithmus (Proximal Policy Optimization)
-- [x] Reward-Shaping & Normalisierung
-- [x] Training & Model Persistence
-
-### ✅ Cloud & Big Data
-- [x] **Zustandslose Komponente**: Streamlit Frontend
-  - User-Interface ohne internen Zustand
-  - Jeder Request ist unabhängig
-  - Horizontal skalierbar
-- [x] **Zustandsbehaftete Komponente**: FastAPI Backend
-  - RL-Model wird beim Start geladen (zustandsbehaftet!)
-  - Model bleibt im Speicher für schnelle Inference
-  - Simulation-State wird über Requests hinweg gehalten
-- [x] **Cloud Deployment**: Google Cloud Run
-  - Container-basiert (Docker)
-  - Auto-Scaling
-  - Cloud Storage für Models
-
----
-
-## ☁️ Cloud Deployment (GCP)
-
-### Voraussetzungen
-1. **Google Cloud Account** (Free Tier reicht für Tests)
-2. **gcloud CLI** installiert: https://cloud.google.com/sdk/docs/install
-3. **Docker** installiert (optional, für lokale Tests)
-
-### Setup
-
-```bash
-# 1. GCP Projekt erstellen
-gcloud projects create vwl-rl-cloud --name="VWL RL Cloud"
-gcloud config set project vwl-rl-cloud
-
-# 2. APIs aktivieren
-gcloud services enable run.googleapis.com
-gcloud services enable cloudbuild.googleapis.com
-gcloud services enable storage.googleapis.com
-
-# 3. .env konfigurieren
-cp .env.example .env
-# Editiere .env mit deiner PROJECT_ID
-
-# 4. Deploy!
-bash deploy/deploy.sh
-```
-
-### Kosten-Schätzung (GCP Free Tier)
-- **Frontend**: ~€0.01/Stunde (Cloud Run)
-- **Backend**: ~€0.05/Stunde (Cloud Run mit 2Gi RAM)
-- **Storage**: ~€0.02/GB/Monat
-- **Total**: ~€5-10/Monat bei regelmäßiger Nutzung
-- **Free Tier**: Erste 2 Mio Requests/Monat kostenlos!
-
----
-
-## 🔧 Troubleshooting
-
-### Problem: `py -3.11` nicht gefunden
-**Lösung**: Python 3.11 installieren von https://python.org/downloads/release/python-3119/
-- Windows: "Add python.exe to PATH" aktivieren!
-
-### Problem: Ray/RLlib Fehler beim Install
-**Lösung**: 
-```bash
-pip install --upgrade pip
-pip install "ray[rllib]==2.10.0" --no-cache-dir
-```
-
-### Problem: Numpy/PyArrow Konflikt
-**Lösung**: Exakte Versionen aus requirements.txt nutzen:
-```bash
-pip install numpy==1.26.4 pyarrow==14.0.1
-```
-
-### Problem: VS Code erkennt .venv nicht
-**Lösung**: 
-- `Ctrl+Shift+P` → "Python: Select Interpreter"
-- Manuell `.venv/Scripts/python.exe` auswählen
-- VS Code neu starten
-
-### Problem: Training läuft nicht
-**Lösung**: Prüfe Ray-Initialisierung:
-```bash
-python -c "import ray; ray.init(); print(ray.cluster_resources())"
-```
-
----
-
-## 📊 Performance-Metriken
-
-### Training (CPU, 50 Iterationen)
-- **Dauer**: ~10 Minuten
-- **Initial Reward**: -15 bis -10
-- **Final Reward**: +2 bis +8
-- **Best Case**: +10 (stabiles Wirtschaftswachstum)
-
-### Simulation (Frontend)
-- **Ladezeit**: <2 Sekunden
-- **Simulation**: 100 Steps in <1 Sekunde
-- **Rendering**: Real-time mit Plotly
-
----
-
-## 📚 Dokumentation
-
-- [Ray RLlib Docs](https://docs.ray.io/en/latest/rllib/index.html)
-- [Gymnasium API](https://gymnasium.farama.org/)
-- [Streamlit Docs](https://docs.streamlit.io/)
-- [FastAPI Docs](https://fastapi.tiangolo.com/)
-- [Google Cloud Run](https://cloud.google.com/run/docs)
-
----
-
-## 🎯 Nächste Schritte / Erweiterungen
-
-### V1.1 (geplant)
-- [ ] Multi-Agent MARL: Alle 10 Firmen als RL-Agents
-- [ ] Hyperparameter-Tuning mit Ray Tune
-- [ ] Erweiterte Szenarien (Krisen, Boom-Bust-Zyklen)
-- [ ] TensorBoard Integration für Training-Monitoring
-
-### V2.0 (Zukunft)
-- [ ] Haushalte als RL-Agents
-- [ ] Internationale Handel-Simulation
-- [ ] Historische Daten-Integration
-- [ ] A/B-Testing verschiedener Wirtschaftspolitiken
-
----
-
-## 👥 Für Dozenten: Schnell-Setup
+## 🎓 **Für Dozenten: Copy-Paste Setup**
 
 ```bash
 # 1. Klonen
 git clone https://github.com/H3nri5H/VWL-RL-Cloud.git
 cd VWL-RL-Cloud
 
-# 2. Environment
-py -3.11 -m venv .venv
-.venv\Scripts\activate  # Windows
-# source .venv/bin/activate  # Linux/Mac
+# 2. Windows: Doppelklick setup.bat
+#    Oder: python setup.py
 
-# 3. Install
-pip install --upgrade pip
-pip install -r requirements.txt
-
-# 4. Tests
-python tests/test_env.py
-python tests/test_scenarios.py
-
-# 5. Frontend Demo
+# 3. Demo starten
 streamlit run frontend/app.py
-# → Browser öffnet http://localhost:8501
-
-# 6. Training (optional)
-python train/train_single.py
 ```
 
-**Gesamtdauer**: ~15 Minuten (inkl. Installs)
+**Gesamtdauer**: ~10 Minuten (inkl. Downloads)
+
+---
+
+## 📊 Features im Frontend
+
+- 🎲 **Interactive Sliders**: Steuersatz (0-50%), Staatsausgaben (0-1000€), Zinsen (0-20%)
+- 🎬 **Szenarien**: Normal, Rezession, Boom, Inflation
+- 📊 **Live-Plots**: BIP, Arbeitslosigkeit, Inflation (100 Steps)
+- 🧠 **RL Toggle**: "RL-Agent nutzen" schaltet zwischen manuell/automatisch um
+- 📊 **Metriken**: BIP-Wachstum, End-Werte, Durchschnitte
+
+---
+
+## ☁️ Cloud Deployment (Optional)
+
+### Voraussetzungen
+1. Google Cloud Account (Free Tier reicht)
+2. gcloud CLI: https://cloud.google.com/sdk/docs/install
+
+### Deploy
+```bash
+# .env konfigurieren
+cp .env.example .env
+# Edit: GCP_PROJECT_ID setzen
+
+# Deploy!
+bash deploy/deploy.sh
+```
+
+**Kosten**: ~€5-10/Monat (Free Tier: 2 Mio Requests kostenlos)
+
+---
+
+## 📚 Modul-Anforderungen
+
+### ✅ Fortgeschrittene KI-Anwendungen
+- [x] Multi-Agent Reinforcement Learning (Ray RLlib)
+- [x] Custom Gymnasium Environment
+- [x] PPO-Algorithmus
+- [x] Reward-Shaping & Normalisierung
+
+### ✅ Cloud & Big Data
+- [x] **Zustandslose Komponente**: Streamlit Frontend
+- [x] **Zustandsbehaftete Komponente**: FastAPI Backend (Model im RAM)
+- [x] **Cloud Deployment**: Google Cloud Run
+- [x] **Containerization**: Docker
 
 ---
 
 ## 📝 Ideenpräsentation (10 Min)
 
-### Struktur (gemäß Anforderungen)
+**Struktur (gemäß PDF-Anforderungen):**
 
 1. **Generelle Idee** (2 Min)
    - Wirtschafts-Simulation mit RL
@@ -364,12 +378,12 @@ python train/train_single.py
 
 4. **Daten** (2 Min)
    - Synthetische Simulation (keine externen Daten nötig)
-   - Plan B: Historische Wirtschaftsdaten (Eurostat, Bundesbank)
+   - Plan B: Historische Daten (Eurostat, Bundesbank)
 
 5. **Nutzen** (2 Min)
    - Policy-Testing ohne reale Konsequenzen
-   - Bildungstool für Volkswirtschaftslehre
-   - Cloud-Architektur als Showcase
+   - Bildungstool
+   - Cloud-Architektur Showcase
 
 ---
 
@@ -381,12 +395,24 @@ Januar 2026
 
 ---
 
-## 📄 Lizenz
+## 📦 Was ist neu (Changelog)
 
-MIT License - siehe GitHub
+### v1.1 (21.01.2026)
+- ✅ **setup.bat**: Windows One-Click Installer
+- ✅ **setup.py**: Automatisches Setup-Script
+- ✅ **Tests gefixt**: Kein pytest mehr nötig, PYTHONPATH automatisch
+- ✅ **requirements.txt**: Gymnasium 0.28.1 (Ray-kompatibel)
+- ✅ **README**: Idiotensichere Anleitung für Anfänger
+
+### v1.0 (21.01.2026)
+- ✅ Initial Release
+- ✅ Economy Environment (Gymnasium)
+- ✅ Streamlit Frontend
+- ✅ FastAPI Backend
+- ✅ Cloud Deployment Scripts
 
 ---
 
-**Status**: 🟢 **Production Ready** - Alle Kern-Features implementiert!
+**Status**: 🟢 **Production Ready** - Alle Bugs gefixt!
 
-🎉 **Los geht's**: `git clone` und `streamlit run frontend/app.py`
+🎉 **Empfohlen**: `setup.bat` (Windows) oder `python setup.py`
