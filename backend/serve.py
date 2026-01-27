@@ -1,6 +1,6 @@
 """FastAPI Backend für RL-Model Inference
 
-Zustandsbehaftet: Model wird beim Start geladen und bleibt im RAM.
+Zustandsbehaftet: Model wird beim ersten Request geladen.
 Endpoints:
 - POST /predict: Inference für gegebene Observations
 - GET /health: Health Check
@@ -8,24 +8,13 @@ Endpoints:
 """
 
 import os
-import sys
-from pathlib import Path
-from typing import List, Dict, Any
-
-# PYTHONPATH Fix
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
+from typing import Dict, Any
 import warnings
 warnings.filterwarnings('ignore')
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import numpy as np
-import ray
-from ray.rllib.algorithms.ppo import PPO
-
-# Environment Import
-from envs.economy_env import EconomyEnv
 
 
 # === PYDANTIC MODELS ===
@@ -48,14 +37,11 @@ class HealthResponse(BaseModel):
     """Health Check Response"""
     status: str
     model_loaded: bool
-    ray_initialized: bool
 
 class InfoResponse(BaseModel):
     """Model Info Response"""
     model_type: str
     framework: str
-    observation_space: Dict[str, Any]
-    action_space: Dict[str, Any]
 
 
 # === FASTAPI APP ===
@@ -71,50 +57,43 @@ model = None
 model_loaded = False
 
 
-@app.on_event("startup")
-async def startup_event():
-    """Load Model beim Start"""
+def load_model_lazy():
+    """Lazy Loading: Model erst beim ersten Request laden"""
     global model, model_loaded
     
-    print("🚀 Starting Backend...")
+    if model_loaded:
+        return
     
-    # Ray initialisieren
-    ray.init(
-        ignore_reinit_error=True,
-        num_cpus=2,
-        logging_level="ERROR"
-    )
-    print("✅ Ray initialized")
+    print("📥 Loading model (lazy)...")
     
-    # Model-Pfad (aus Environment oder default)
-    model_path = os.getenv("MODEL_PATH", "checkpoints/checkpoint_final")
-    
-    if Path(model_path).exists():
-        print(f"📥 Loading model from: {model_path}")
-        try:
+    try:
+        import ray
+        from ray.rllib.algorithms.ppo import PPO
+        
+        ray.init(
+            ignore_reinit_error=True,
+            num_cpus=2,
+            logging_level="ERROR"
+        )
+        print("✅ Ray initialized")
+        
+        model_path = os.getenv("MODEL_PATH", "checkpoints/checkpoint_final")
+        
+        if os.path.exists(model_path):
             model = PPO.from_checkpoint(model_path)
             model_loaded = True
-            print("✅ Model loaded successfully!")
-        except Exception as e:
-            print(f"❌ Error loading model: {e}")
-            print("⚠️  Backend startet ohne Model (nur Health Check verfügbar)")
-    else:
-        print(f"⚠️  Model nicht gefunden: {model_path}")
-        print("⚠️  Backend startet ohne Model (nur Health Check verfügbar)")
+            print("✅ Model loaded!")
+        else:
+            print(f"⚠️ Model not found: {model_path}")
+            
+    except Exception as e:
+        print(f"❌ Error loading model: {e}")
 
 
-@app.on_event("shutdown")
-async def shutdown_event():
-    """Cleanup beim Herunterfahren"""
-    global model
-    
-    print("🛝 Shutting down...")
-    
-    if model is not None:
-        model.stop()
-    
-    ray.shutdown()
-    print("✅ Shutdown complete")
+@app.on_event("startup")
+async def startup_event():
+    """Fast Startup - kein Model Loading"""
+    print("🚀 Backend started (ready for requests)")
 
 
 @app.get("/", response_model=Dict[str, str])
@@ -123,8 +102,7 @@ async def root():
     return {
         "service": "VWL-RL Inference API",
         "version": "1.0.0",
-        "status": "running",
-        "endpoints": ["/health", "/info", "/predict"]
+        "status": "running"
     }
 
 
@@ -133,8 +111,7 @@ async def health():
     """Health Check für Cloud Run"""
     return HealthResponse(
         status="healthy",
-        model_loaded=model_loaded,
-        ray_initialized=ray.is_initialized()
+        model_loaded=model_loaded
     )
 
 
@@ -142,41 +119,27 @@ async def health():
 async def info():
     """Model Informationen"""
     if not model_loaded:
-        raise HTTPException(status_code=503, detail="Model not loaded")
+        load_model_lazy()
+    
+    if not model_loaded:
+        raise HTTPException(status_code=503, detail="Model not available")
     
     return InfoResponse(
         model_type="PPO",
-        framework="torch",
-        observation_space={
-            "type": "Box",
-            "shape": [5],
-            "low": [-10.0, -0.5, 0.0, -10.0, 0.0],
-            "high": [10.0, 0.5, 1.0, 10.0, 0.3]
-        },
-        action_space={
-            "type": "Box",
-            "shape": [3],
-            "low": [0.0, 0.0, 0.0],
-            "high": [0.5, 1000.0, 0.2]
-        }
+        framework="torch"
     )
 
 
 @app.post("/predict", response_model=ActionOutput)
 async def predict(obs: ObservationInput):
-    """Model Inference
-    
-    Args:
-        obs: Observation State [bip, inflation, unemployment, debt, interest_rate]
-        
-    Returns:
-        action: [tax_rate, gov_spending, interest_rate]
-    """
+    """Model Inference"""
     if not model_loaded:
-        raise HTTPException(status_code=503, detail="Model not loaded")
+        load_model_lazy()
+    
+    if not model_loaded:
+        raise HTTPException(status_code=503, detail="Model not available")
     
     try:
-        # Observation zu numpy array
         observation = np.array([
             obs.bip,
             obs.inflation,
@@ -185,10 +148,8 @@ async def predict(obs: ObservationInput):
             obs.interest_rate
         ], dtype=np.float32)
         
-        # Inference
         action = model.compute_single_action(observation)
         
-        # Output
         return ActionOutput(
             tax_rate=float(action[0]),
             gov_spending=float(action[1]),
