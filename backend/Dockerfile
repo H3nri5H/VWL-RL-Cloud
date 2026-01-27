@@ -13,6 +13,7 @@ WORKDIR /app
 # System Dependencies (minimal)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Python Dependencies
@@ -20,9 +21,9 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
-# Copy Application Code
-COPY backend/ ./backend/
-COPY envs/ ./envs/
+# Copy Application Code (we're building FROM backend/ dir)
+COPY serve.py ./backend/
+COPY __init__.py ./backend/ 2>/dev/null || true
 
 # Environment Variables
 ENV PYTHONUNBUFFERED=1
