@@ -1,5 +1,6 @@
 # Backend Dockerfile - FastAPI + Ray RLlib Inference
 # Zustandsbehaftet: Model wird beim Start geladen und bleibt im RAM
+# BUILD CONTEXT: Project Root (not backend/)
 
 FROM python:3.11-slim
 
@@ -21,9 +22,9 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
-# Copy Application Code (we're building FROM backend/ dir)
-COPY serve.py ./backend/
-COPY __init__.py ./backend/ 2>/dev/null || true
+# Copy Application Code
+COPY backend/ ./backend/
+COPY envs/ ./envs/
 
 # Environment Variables
 ENV PYTHONUNBUFFERED=1
