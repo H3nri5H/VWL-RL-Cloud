@@ -1,31 +1,39 @@
+# Backend Dockerfile - FastAPI + Ray RLlib Inference
+# Zustandsbehaftet: Model wird beim Start geladen und bleibt im RAM
+
 FROM python:3.11-slim
 
+# Metadata
+LABEL maintainer="H3nri5H"
+LABEL description="VWL-RL Backend: FastAPI Inference Service"
+
+# Working Directory
 WORKDIR /app
 
-# Copy requirements
+# System Dependencies (minimal)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Python Dependencies
 COPY requirements.txt .
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
 
-# Install backend dependencies
-RUN pip install --no-cache-dir \
-    fastapi==0.109.0 \
-    uvicorn==0.27.0 \
-    pydantic==2.5.0 \
-    numpy==1.26.4 \
-    ray[rllib]==2.10.0 \
-    gymnasium==0.29.1 \
-    torch==2.1.0
-
-# Copy backend + environment code
+# Copy Application Code
 COPY backend/ ./backend/
 COPY envs/ ./envs/
 
-# Copy trained models (will be mounted from Cloud Storage in production)
-COPY models/ ./models/ 
+# Environment Variables
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH=/app
 
-EXPOSE 8000
+# Health Check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:8080/health || exit 1
 
-# Health check
-HEALTHCHECK CMD curl --fail http://localhost:8000/health || exit 1
+# Expose Port (Cloud Run verwendet 8080)
+EXPOSE 8080
 
-# Run FastAPI
-CMD ["uvicorn", "backend.serve:app", "--host", "0.0.0.0", "--port", "8000"]
+# Start FastAPI Server
+CMD ["uvicorn", "backend.serve:app", "--host", "0.0.0.0", "--port", "8080", "--workers", "1"]
