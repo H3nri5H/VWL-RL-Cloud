@@ -1,141 +1,204 @@
-"""FastAPI Backend (Zustandsbehaftet) - RL Model Inference"""
+"""FastAPI Backend für RL-Model Inference
+
+Zustandsbehaftet: Model wird beim Start geladen und bleibt im RAM.
+Endpoints:
+- POST /predict: Inference für gegebene Observations
+- GET /health: Health Check
+- GET /info: Model-Informationen
+"""
+
+import os
+import sys
+from pathlib import Path
+from typing import List, Dict, Any
+
+# PYTHONPATH Fix
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+import warnings
+warnings.filterwarnings('ignore')
+
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import numpy as np
-from typing import List, Dict, Optional
-import os
+import ray
+from ray.rllib.algorithms.ppo import PPO
 
-# TODO: Uncomment when training done
-# import ray
-# from ray.rllib.algorithms.ppo import PPO
+# Environment Import
+from envs.economy_env import EconomyEnv
+
+
+# === PYDANTIC MODELS ===
+
+class ObservationInput(BaseModel):
+    """Input: Observation State"""
+    bip: float
+    inflation: float
+    unemployment: float
+    debt: float
+    interest_rate: float
+
+class ActionOutput(BaseModel):
+    """Output: Predicted Action"""
+    tax_rate: float
+    gov_spending: float
+    interest_rate: float
+
+class HealthResponse(BaseModel):
+    """Health Check Response"""
+    status: str
+    model_loaded: bool
+    ray_initialized: bool
+
+class InfoResponse(BaseModel):
+    """Model Info Response"""
+    model_type: str
+    framework: str
+    observation_space: Dict[str, Any]
+    action_space: Dict[str, Any]
+
+
+# === FASTAPI APP ===
 
 app = FastAPI(
-    title="VWL-RL Backend",
-    description="Zustandsbehaftete RL-Inference API",
+    title="VWL-RL Inference API",
+    description="Reinforcement Learning Model Inference für Wirtschaftspolitik",
     version="1.0.0"
 )
 
-# Global state: Loaded RL model
+# Global State
 model = None
 model_loaded = False
 
 
-class SimulationRequest(BaseModel):
-    """Request für Simulation"""
-    tax_rate: float = 0.3
-    gov_spending: float = 500.0
-    interest_rate: float = 0.05
-    scenario: str = "Normal"
-    num_steps: int = 100
-    use_rl: bool = False
-
-
-class SimulationResponse(BaseModel):
-    """Response mit Simulations-Ergebnissen"""
-    bip: List[float]
-    inflation: List[float]
-    unemployment: List[float]
-    avg_wage: List[float]
-    steps: List[int]
-    scenario: str
-    used_rl: bool
-
-
 @app.on_event("startup")
-async def load_model():
-    """Lade RL Model beim Server-Start (zustandsbehaftet!)"""
+async def startup_event():
+    """Load Model beim Start"""
     global model, model_loaded
     
-    model_path = os.getenv("MODEL_PATH", "models/checkpoint_000050")
+    print("🚀 Starting Backend...")
     
-    if os.path.exists(model_path):
+    # Ray initialisieren
+    ray.init(
+        ignore_reinit_error=True,
+        num_cpus=2,
+        logging_level="ERROR"
+    )
+    print("✅ Ray initialized")
+    
+    # Model-Pfad (aus Environment oder default)
+    model_path = os.getenv("MODEL_PATH", "checkpoints/checkpoint_final")
+    
+    if Path(model_path).exists():
+        print(f"📥 Loading model from: {model_path}")
         try:
-            # TODO: Uncomment when model trained
-            # ray.init(ignore_reinit_error=True)
-            # model = PPO.from_checkpoint(model_path)
-            # model_loaded = True
-            print(f"✅ RL Model geladen: {model_path}")
+            model = PPO.from_checkpoint(model_path)
+            model_loaded = True
+            print("✅ Model loaded successfully!")
         except Exception as e:
-            print(f"⚠️ Model laden fehlgeschlagen: {e}")
-            model_loaded = False
+            print(f"❌ Error loading model: {e}")
+            print("⚠️  Backend startet ohne Model (nur Health Check verfügbar)")
     else:
-        print(f"⚠️ Kein Model gefunden unter {model_path}")
-        model_loaded = False
+        print(f"⚠️  Model nicht gefunden: {model_path}")
+        print("⚠️  Backend startet ohne Model (nur Health Check verfügbar)")
 
 
-@app.get("/")
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Cleanup beim Herunterfahren"""
+    global model
+    
+    print("🛝 Shutting down...")
+    
+    if model is not None:
+        model.stop()
+    
+    ray.shutdown()
+    print("✅ Shutdown complete")
+
+
+@app.get("/", response_model=Dict[str, str])
 async def root():
+    """Root Endpoint"""
     return {
-        "service": "VWL-RL Backend",
+        "service": "VWL-RL Inference API",
+        "version": "1.0.0",
         "status": "running",
-        "model_loaded": model_loaded
+        "endpoints": ["/health", "/info", "/predict"]
     }
 
 
-@app.get("/health")
+@app.get("/health", response_model=HealthResponse)
 async def health():
-    return {"status": "healthy", "model_loaded": model_loaded}
-
-
-@app.post("/simulate", response_model=SimulationResponse)
-async def simulate(request: SimulationRequest):
-    """
-    Führe Wirtschafts-Simulation aus
-    
-    - Wenn use_rl=True: RL-Agent steuert (zustandsbehaftet!)
-    - Sonst: Manuelle Parameter
-    """
-    
-    # Mock Simulation (bis RL-Model trainiert)
-    steps = list(range(request.num_steps))
-    
-    # Szenario-basierte Simulation
-    if request.scenario == "Rezession":
-        bip = [1000 - i * 5 + np.random.normal(0, 20) for i in steps]
-        unemployment = [0.05 + i * 0.003 + np.random.normal(0, 0.01) for i in steps]
-        inflation = [0.02 - i * 0.0001 + np.random.normal(0, 0.005) for i in steps]
-    elif request.scenario == "Boom":
-        bip = [1000 + i * 10 + np.random.normal(0, 30) for i in steps]
-        unemployment = [max(0.01, 0.05 - i * 0.0002 + np.random.normal(0, 0.005)) for i in steps]
-        inflation = [0.02 + i * 0.0005 + np.random.normal(0, 0.01) for i in steps]
-    elif request.scenario == "Inflation":
-        bip = [1000 + i * 2 + np.random.normal(0, 25) for i in steps]
-        unemployment = [0.05 + np.random.normal(0, 0.01) for i in steps]
-        inflation = [0.02 + i * 0.002 + np.random.normal(0, 0.015) for i in steps]
-    else:  # Normal
-        bip = [1000 + i * 3 + np.random.normal(0, 20) for i in steps]
-        unemployment = [0.05 + np.random.normal(0, 0.01) for i in steps]
-        inflation = [0.02 + np.random.normal(0, 0.005) for i in steps]
-    
-    # Clip values
-    bip = [max(100, min(5000, x)) for x in bip]
-    unemployment = [max(0, min(0.5, x)) for x in unemployment]
-    inflation = [max(-0.1, min(0.3, x)) for x in inflation]
-    
-    # Mock wage data
-    avg_wage = [50 + i * 0.1 + np.random.normal(0, 2) for i in steps]
-    
-    # TODO: Replace with actual RL inference
-    # if request.use_rl and model_loaded:
-    #     env = EconomyEnv()
-    #     obs = env.reset()
-    #     for step in range(request.num_steps):
-    #         action = model.compute_single_action(obs)
-    #         obs, reward, done, info = env.step(action)
-    #         bip.append(info['bip'])
-    #         ...
-    
-    return SimulationResponse(
-        bip=bip,
-        inflation=inflation,
-        unemployment=unemployment,
-        avg_wage=avg_wage,
-        steps=steps,
-        scenario=request.scenario,
-        used_rl=request.use_rl and model_loaded
+    """Health Check für Cloud Run"""
+    return HealthResponse(
+        status="healthy",
+        model_loaded=model_loaded,
+        ray_initialized=ray.is_initialized()
     )
+
+
+@app.get("/info", response_model=InfoResponse)
+async def info():
+    """Model Informationen"""
+    if not model_loaded:
+        raise HTTPException(status_code=503, detail="Model not loaded")
+    
+    return InfoResponse(
+        model_type="PPO",
+        framework="torch",
+        observation_space={
+            "type": "Box",
+            "shape": [5],
+            "low": [-10.0, -0.5, 0.0, -10.0, 0.0],
+            "high": [10.0, 0.5, 1.0, 10.0, 0.3]
+        },
+        action_space={
+            "type": "Box",
+            "shape": [3],
+            "low": [0.0, 0.0, 0.0],
+            "high": [0.5, 1000.0, 0.2]
+        }
+    )
+
+
+@app.post("/predict", response_model=ActionOutput)
+async def predict(obs: ObservationInput):
+    """Model Inference
+    
+    Args:
+        obs: Observation State [bip, inflation, unemployment, debt, interest_rate]
+        
+    Returns:
+        action: [tax_rate, gov_spending, interest_rate]
+    """
+    if not model_loaded:
+        raise HTTPException(status_code=503, detail="Model not loaded")
+    
+    try:
+        # Observation zu numpy array
+        observation = np.array([
+            obs.bip,
+            obs.inflation,
+            obs.unemployment,
+            obs.debt,
+            obs.interest_rate
+        ], dtype=np.float32)
+        
+        # Inference
+        action = model.compute_single_action(observation)
+        
+        # Output
+        return ActionOutput(
+            tax_rate=float(action[0]),
+            gov_spending=float(action[1]),
+            interest_rate=float(action[2])
+        )
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Inference error: {str(e)}")
 
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8080)
