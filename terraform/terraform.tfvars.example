@@ -1,0 +1,11 @@
+# Example Terraform Variables
+# Copy to terraform.tfvars and fill in your values
+
+project_id  = "your-gcp-project-id"
+region      = "europe-west1"
+environment = "dev"
+
+# GKE Settings
+gke_machine_type = "e2-standard-2"
+gke_min_nodes    = 1
+gke_max_nodes    = 5
