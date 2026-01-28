@@ -74,10 +74,10 @@ class RLlibEconomyEnv(MultiAgentEnv):
             dtype=np.float32
         )
         
-        # Firm Spaces - Increased bounds to prevent overflow
+        # Firm Spaces - Very high bounds with clipping
         self.firm_observation_space = spaces.Box(
             low=np.array([0.0, 0.0, 0.0, 0.0]),
-            high=np.array([2000000.0, 10000.0, 100.0, 50000.0]),  # Much higher limits
+            high=np.array([5000000.0, 50000.0, 200.0, 100000.0]),  # Very high limits
             dtype=np.float32
         )
         self.firm_action_space = spaces.Box(
@@ -239,20 +239,34 @@ class RLlibEconomyEnv(MultiAgentEnv):
         
         # Haushalte
         for i, household in enumerate(self.households):
-            obs[f'household_{i}'] = np.array([
+            obs_values = np.array([
                 household['cash'],
                 avg_price,
                 1.0 if household['employed'] else 0.0
             ], dtype=np.float32)
+            # Clip to observation space
+            obs_values = np.clip(
+                obs_values,
+                self.household_observation_space.low,
+                self.household_observation_space.high
+            )
+            obs[f'household_{i}'] = obs_values
         
         # Firmen
         for i, firm in enumerate(self.firms):
-            obs[f'firm_{i}'] = np.array([
+            obs_values = np.array([
                 firm['capital'],
                 firm['inventory'],
                 float(firm['employees']),
                 total_demand
             ], dtype=np.float32)
+            # Clip to observation space to prevent overflow
+            obs_values = np.clip(
+                obs_values,
+                self.firm_observation_space.low,
+                self.firm_observation_space.high
+            )
+            obs[f'firm_{i}'] = obs_values
         
         return obs
     
