@@ -71,21 +71,16 @@ def train_economy(args):
         )
     }
     
-    # PPO Config
-    # IMPORTANT: api_stack() must be called FIRST
+    # PPO Config - Ray 2.9.0 stable API
     config = (
         PPOConfig()
-        .api_stack(
-            enable_rl_module_and_learner=False,
-            enable_env_runner_and_connector_v2=False
-        )
-        .framework("torch")
         .environment(
             env="economy",
             env_config={
                 'config_path': 'configs/agent_config.yaml'
             }
         )
+        .framework("torch")
         .training(
             train_batch_size=4000,
             sgd_minibatch_size=128,
