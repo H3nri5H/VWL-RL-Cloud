@@ -16,6 +16,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import ray
 from ray.rllib.algorithms.ppo import PPO
+from ray.tune.registry import register_env
 from envs.rllib_economy_env import RLlibEconomyEnv
 
 # Page config
@@ -130,6 +131,9 @@ if st.sidebar.button("🚀 Run Simulation", type="primary"):
             # Initialize Ray
             if not ray.is_initialized():
                 ray.init(ignore_reinit_error=True, logging_level='ERROR')
+            
+            # CRITICAL: Register environment BEFORE loading checkpoint!
+            register_env("economy", lambda config: RLlibEconomyEnv(config))
             
             # Load algorithm
             if st.session_state.algo is None or True:  # Always reload for now
