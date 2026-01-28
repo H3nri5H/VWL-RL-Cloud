@@ -79,6 +79,10 @@ def quick_test():
         )
     }
     
+    # Ray 2.39 API Updates:
+    # - num_sgd_iter -> num_epochs
+    # - rollouts() -> env_runners()
+    # - num_rollout_workers -> num_env_runners
     config = (
         PPOConfig()
         .environment(
@@ -88,16 +92,16 @@ def quick_test():
         .framework("torch")
         .training(
             train_batch_size=200,
-            minibatch_size=50,  # Updated API: sgd_minibatch_size -> minibatch_size
-            num_sgd_iter=3
+            minibatch_size=50,
+            num_epochs=3  # Updated: num_sgd_iter -> num_epochs
         )
         .multi_agent(
             policies=policies,
             policy_mapping_fn=policy_mapping_fn,
             policies_to_train=['household_policy', 'firm_policy']
         )
-        .rollouts(
-            num_rollout_workers=1
+        .env_runners(  # Updated: rollouts() -> env_runners()
+            num_env_runners=1  # Updated: num_rollout_workers -> num_env_runners
         )
     )
     
