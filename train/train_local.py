@@ -6,7 +6,13 @@ Trainiert alle Agents (Haushalte + Firmen) mit PPO.
 import argparse
 import os
 import sys
+import warnings
 from pathlib import Path
+
+# Suppress warnings
+warnings.filterwarnings('ignore')
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+os.environ['PYTHONWARNINGS'] = 'ignore::DeprecationWarning'
 
 # Add parent dir to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -35,20 +41,23 @@ def policy_mapping_fn(agent_id, episode, worker, **kwargs):
 def train_economy(args):
     """Training starten"""
     
-    print("="*60)
+    print("\n" + "="*60)
     print("Multi-Agent Economy Training (RLlib + PPO)")
     print("="*60)
     print(f"\nConfig:")
     print(f"  Timesteps: {args.timesteps:,}")
-    print(f"  Checkpoint: {args.checkpoint_freq}")
+    print(f"  Workers: {args.num_workers}")
+    print(f"  Checkpoint Frequency: every {args.checkpoint_freq} iterations")
     print(f"  Output: {args.output_dir}")
     print("\n" + "="*60 + "\n")
     
-    # Ray initialisieren
+    # Ray initialisieren - mit weniger Logging
     ray.init(
         ignore_reinit_error=True,
         num_cpus=args.num_cpus,
-        num_gpus=args.num_gpus
+        num_gpus=args.num_gpus,
+        log_to_driver=False,  # Weniger Logs
+        logging_level='ERROR'  # Nur Errors
     )
     
     # Environment registrieren
@@ -104,7 +113,7 @@ def train_economy(args):
             num_gpus=args.num_gpus
         )
         .debugging(
-            log_level="INFO"
+            log_level="ERROR"  # Nur Errors loggen
         )
     )
     
@@ -114,6 +123,18 @@ def train_economy(args):
     # Convert to absolute path for PyArrow
     storage_path = Path(args.output_dir).absolute()
     storage_path.mkdir(parents=True, exist_ok=True)
+    
+    # Custom progress reporter - nur wichtige Metriken
+    from ray.tune import CLIReporter
+    reporter = CLIReporter(
+        max_report_frequency=30,  # Update alle 30 Sekunden
+        metric_columns=[
+            "training_iteration",
+            "timesteps_total",
+            "episode_reward_mean",
+            "time_total_s"
+        ]
+    )
     
     # Ray 2.30.0: Use absolute storage_path
     tune.run(
@@ -125,12 +146,19 @@ def train_economy(args):
         },
         checkpoint_freq=args.checkpoint_freq,
         checkpoint_at_end=True,
-        storage_path=str(storage_path),  # Absolute path as string
-        verbose=1
+        storage_path=str(storage_path),
+        verbose=0,  # Keine detaillierten Logs
+        progress_reporter=reporter,
+        log_to_file=True  # Logs in Files statt Console
     )
     
-    print("\n[SUCCESS] Training abgeschlossen!")
-    print(f"Models gespeichert in: {storage_path}")
+    print("\n" + "="*60)
+    print("[SUCCESS] Training abgeschlossen!")
+    print("="*60)
+    print(f"\nModels gespeichert in: {storage_path}/economy_training")
+    print(f"\nTensorBoard starten:")
+    print(f"  tensorboard --logdir {storage_path}/economy_training")
+    print("\n")
     
     ray.shutdown()
 
