@@ -1,0 +1,40 @@
+# Konfiguration für Haushalte und Unternehmen
+# Alle Agents ziehen beim Init zufällige Werte aus diesen Bereichen
+# Diese Werte bleiben dann für alle Episoden fix
+
+# === HAUSHALTE ===
+households:
+  count: 10  # Anzahl Haushalte
+  
+  # Startbedingungen (Min/Max für ALLE Haushalte)
+  initial_cash:
+    min: 1000    # Minimum Startkapital in €
+    max: 5000    # Maximum Startkapital in €
+  
+  # Weitere Parameter (später erweiterbar)
+  # income:
+  #   min: 50
+  #   max: 100
+
+# === UNTERNEHMEN ===
+firms:
+  count: 5  # Anzahl Unternehmen
+  
+  # Startbedingungen (Min/Max für ALLE Firmen)
+  initial_capital:
+    min: 100000  # Minimum Startkapital in €
+    max: 500000  # Maximum Startkapital in €
+  
+  initial_employees:
+    min: 3       # Minimum Mitarbeiter
+    max: 8       # Maximum Mitarbeiter
+  
+  # Weitere Parameter (später erweiterbar)
+  # initial_inventory:
+  #   min: 50
+  #   max: 150
+
+# === SIMULATION ===
+simulation:
+  days_per_year: 250      # Betriebstage pro Jahr (ohne Wochenenden/Feiertage)
+  max_years: 5            # Training über 5 Jahre
