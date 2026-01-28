@@ -79,12 +79,13 @@ def quick_test():
         )
     }
     
-    # Ray 2.39 API Updates:
-    # - num_sgd_iter -> num_epochs
-    # - rollouts() -> env_runners()
-    # - num_rollout_workers -> num_env_runners
+    # Ray 2.39: Use old API stack (stable and compatible)
     config = (
         PPOConfig()
+        .api_stack(
+            enable_rl_module_and_learner=False,
+            enable_env_runner_and_connector_v2=False
+        )
         .environment(
             env="economy",
             env_config={'config_path': 'configs/agent_config.yaml'}
@@ -92,16 +93,16 @@ def quick_test():
         .framework("torch")
         .training(
             train_batch_size=200,
-            minibatch_size=50,
-            num_epochs=3  # Updated: num_sgd_iter -> num_epochs
+            sgd_minibatch_size=50,  # Old API uses sgd_minibatch_size
+            num_sgd_iter=3
         )
         .multi_agent(
             policies=policies,
             policy_mapping_fn=policy_mapping_fn,
             policies_to_train=['household_policy', 'firm_policy']
         )
-        .env_runners(  # Updated: rollouts() -> env_runners()
-            num_env_runners=1  # Updated: num_rollout_workers -> num_env_runners
+        .rollouts(  # Old API uses rollouts()
+            num_rollout_workers=1
         )
     )
     
@@ -111,8 +112,8 @@ def quick_test():
     result = algo.train()
     
     print(f"      OK Training erfolgreich!")
-    print(f"         Episode Reward Mean: {result['env_runners']['episode_reward_mean']:.2f}")
-    print(f"         Episodes: {result['env_runners']['episodes_this_iter']}")
+    print(f"         Episode Reward Mean: {result['episode_reward_mean']:.2f}")
+    print(f"         Episodes: {result['episodes_this_iter']}")
     
     algo.stop()
     ray.shutdown()
