@@ -3,16 +3,18 @@
 Trainiert alle Agents (Haushalte + Firmen) mit PPO.
 """
 
-import argparse
-import os
-import sys
+# Warnings GANZ FRUEH unterdrücken - vor allen imports!
 import warnings
-from pathlib import Path
-
-# Suppress warnings
 warnings.filterwarnings('ignore')
+
+import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 os.environ['PYTHONWARNINGS'] = 'ignore::DeprecationWarning'
+os.environ['RAY_DEDUP_LOGS'] = '0'
+
+import argparse
+import sys
+from pathlib import Path
 
 # Add parent dir to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -51,20 +53,27 @@ def train_economy(args):
     print(f"  Output: {args.output_dir}")
     print("\n" + "="*60 + "\n")
     
-    # Ray initialisieren - mit weniger Logging
+    # Ray initialisieren - mit minimalem Logging
     ray.init(
         ignore_reinit_error=True,
         num_cpus=args.num_cpus,
         num_gpus=args.num_gpus,
-        log_to_driver=False,  # Weniger Logs
-        logging_level='ERROR'  # Nur Errors
+        log_to_driver=False,
+        logging_level='ERROR',
+        _system_config={
+            "verbose": False,
+        }
     )
     
-    # Environment registrieren
+    # Environment registrieren (silent)
     register_env("economy", lambda config: RLlibEconomyEnv(config))
     
-    # Dummy Environment fuer Spaces
-    dummy_env = RLlibEconomyEnv()
+    # Dummy Environment fuer Spaces (silent output)
+    import io
+    import contextlib
+    
+    with contextlib.redirect_stdout(io.StringIO()):
+        dummy_env = RLlibEconomyEnv()
     
     # Multi-Agent Config
     policies = {
@@ -113,7 +122,7 @@ def train_economy(args):
             num_gpus=args.num_gpus
         )
         .debugging(
-            log_level="ERROR"  # Nur Errors loggen
+            log_level="ERROR"
         )
     )
     
@@ -124,33 +133,41 @@ def train_economy(args):
     storage_path = Path(args.output_dir).absolute()
     storage_path.mkdir(parents=True, exist_ok=True)
     
-    # Custom progress reporter - nur wichtige Metriken
+    # Custom progress reporter - minimal output
     from ray.tune import CLIReporter
     reporter = CLIReporter(
-        max_report_frequency=30,  # Update alle 30 Sekunden
+        max_report_frequency=30,
         metric_columns=[
             "training_iteration",
             "timesteps_total",
             "episode_reward_mean",
             "time_total_s"
-        ]
+        ],
+        max_progress_rows=10,
+        max_error_rows=1,
+        max_column_length=20
     )
     
-    # Ray 2.30.0: Use absolute storage_path
-    tune.run(
-        "PPO",
-        name="economy_training",
-        config=config.to_dict(),
-        stop={
-            "timesteps_total": args.timesteps
-        },
-        checkpoint_freq=args.checkpoint_freq,
-        checkpoint_at_end=True,
-        storage_path=str(storage_path),
-        verbose=0,  # Keine detaillierten Logs
-        progress_reporter=reporter,
-        log_to_file=True  # Logs in Files statt Console
-    )
+    # Suppress stdout during training setup
+    with contextlib.redirect_stdout(io.StringIO()), \
+         contextlib.redirect_stderr(io.StringIO()):
+        
+        # Ray 2.30.0: Use absolute storage_path
+        result = tune.run(
+            "PPO",
+            name="economy_training",
+            config=config.to_dict(),
+            stop={
+                "timesteps_total": args.timesteps
+            },
+            checkpoint_freq=args.checkpoint_freq,
+            checkpoint_at_end=True,
+            storage_path=str(storage_path),
+            verbose=0,
+            progress_reporter=reporter,
+            log_to_file=True,
+            raise_on_failed_trial=False
+        )
     
     print("\n" + "="*60)
     print("[SUCCESS] Training abgeschlossen!")
@@ -158,6 +175,18 @@ def train_economy(args):
     print(f"\nModels gespeichert in: {storage_path}/economy_training")
     print(f"\nTensorBoard starten:")
     print(f"  tensorboard --logdir {storage_path}/economy_training")
+    print("\n" + "="*60)
+    print("\nTraining Stats:")
+    
+    # Zeige finale Stats
+    if result.trials:
+        trial = result.trials[0]
+        if trial.last_result:
+            print(f"  Iterations: {trial.last_result.get('training_iteration', 'N/A')}")
+            print(f"  Timesteps: {trial.last_result.get('timesteps_total', 'N/A'):,}")
+            print(f"  Episode Reward: {trial.last_result.get('episode_reward_mean', 'N/A'):.2f}")
+            print(f"  Training Time: {trial.last_result.get('time_total_s', 0):.1f}s")
+    
     print("\n")
     
     ray.shutdown()
