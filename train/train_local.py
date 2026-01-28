@@ -175,14 +175,26 @@ def train_economy(args):
     print("\n" + "="*60)
     print("\nTraining Stats:")
     
-    # Zeige finale Stats
+    # Zeige finale Stats - mit sicherem Formatting
     if result.trials:
         trial = result.trials[0]
         if trial.last_result:
             print(f"  Iterations: {trial.last_result.get('training_iteration', 'N/A')}")
             print(f"  Timesteps: {trial.last_result.get('timesteps_total', 'N/A'):,}")
-            print(f"  Episode Reward: {trial.last_result.get('episode_reward_mean', 'N/A'):.2f}")
-            print(f"  Training Time: {trial.last_result.get('time_total_s', 0):.1f}s")
+            
+            # Safe formatting for episode_reward_mean
+            reward = trial.last_result.get('episode_reward_mean', None)
+            if reward is not None and isinstance(reward, (int, float)):
+                print(f"  Episode Reward: {reward:.2f}")
+            else:
+                print(f"  Episode Reward: N/A")
+            
+            # Safe formatting for time
+            time_total = trial.last_result.get('time_total_s', 0)
+            if isinstance(time_total, (int, float)):
+                print(f"  Training Time: {time_total:.1f}s")
+            else:
+                print(f"  Training Time: N/A")
     
     print("\n")
     
