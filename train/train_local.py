@@ -72,23 +72,23 @@ def train_economy(args):
     }
     
     # PPO Config
-    # Use old API stack (stable and compatible with our MultiAgentEnv)
+    # IMPORTANT: api_stack() must be called FIRST
     config = (
         PPOConfig()
         .api_stack(
             enable_rl_module_and_learner=False,
             enable_env_runner_and_connector_v2=False
         )
+        .framework("torch")
         .environment(
             env="economy",
             env_config={
                 'config_path': 'configs/agent_config.yaml'
             }
         )
-        .framework("torch")
         .training(
             train_batch_size=4000,
-            sgd_minibatch_size=128,  # Old API uses sgd_minibatch_size
+            sgd_minibatch_size=128,
             num_sgd_iter=10,
             lr=0.0003,
             gamma=0.99,
@@ -101,7 +101,7 @@ def train_economy(args):
             policy_mapping_fn=policy_mapping_fn,
             policies_to_train=['household_policy', 'firm_policy']
         )
-        .rollouts(  # Old API uses rollouts()
+        .rollouts(
             num_rollout_workers=args.num_workers,
             num_envs_per_worker=1
         )
