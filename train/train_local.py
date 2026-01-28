@@ -59,10 +59,7 @@ def train_economy(args):
         num_cpus=args.num_cpus,
         num_gpus=args.num_gpus,
         log_to_driver=False,
-        logging_level='ERROR',
-        _system_config={
-            "verbose": False,
-        }
+        logging_level='ERROR'
     )
     
     # Environment registrieren (silent)
