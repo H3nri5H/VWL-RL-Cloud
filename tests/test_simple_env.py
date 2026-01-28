@@ -1,8 +1,8 @@
-"""Test-Script für SimpleEconomyEnv
+"""Test-Script fuer SimpleEconomyEnv
 
-Führt einen kurzen Test durch:
+Fuehrt einen kurzen Test durch:
 1. Environment initialisieren
-2. Prüft ob initiale Bedingungen fix bleiben
+2. Prueft ob initiale Bedingungen fix bleiben
 3. Simuliert ein paar Steps
 """
 
@@ -16,8 +16,8 @@ from envs.simple_economy_env import SimpleEconomyEnv
 
 
 def test_fixed_initial_conditions():
-    """Test: Initiale Bedingungen bleiben über Episoden fix"""
-    print("\ud83e\uddea Test: Fixe Startbedingungen\n")
+    """Test: Initiale Bedingungen bleiben ueber Episoden fix"""
+    print("[TEST] Fixe Startbedingungen\n")
     
     env = SimpleEconomyEnv()
     
@@ -40,19 +40,19 @@ def test_fixed_initial_conditions():
     assert household_cash_ep1 == household_cash_ep2, "Haushalte haben unterschiedliche Startbedingungen!"
     assert firm_capital_ep1 == firm_capital_ep2, "Firmen haben unterschiedliche Startbedingungen!"
     
-    print("\u2705 Startbedingungen bleiben über Episoden fix!")
-    print(f"   Haushalt 0: Immer {household_cash_ep1[0]:.2f}€")
-    print(f"   Firma 0: Immer {firm_capital_ep1[0]:.2f}€\n")
+    print("[OK] Startbedingungen bleiben ueber Episoden fix!")
+    print(f"     Haushalt 0: Immer {household_cash_ep1[0]:.2f} EUR")
+    print(f"     Firma 0: Immer {firm_capital_ep1[0]:.2f} EUR\n")
 
 
 def test_basic_simulation():
-    """Test: Basis-Simulation läuft"""
-    print("\ud83e\uddea Test: Basis-Simulation\n")
+    """Test: Basis-Simulation laeuft"""
+    print("[TEST] Basis-Simulation\n")
     
     env = SimpleEconomyEnv()
     obs, info = env.reset()
     
-    print(f"Start: {info['total_household_cash']:.0f}€ (Haushalte), {info['total_firm_capital']:.0f}€ (Firmen)")
+    print(f"Start: {info['total_household_cash']:.0f} EUR (Haushalte), {info['total_firm_capital']:.0f} EUR (Firmen)")
     
     # 50 Steps simulieren
     for i in range(50):
@@ -65,10 +65,10 @@ def test_basic_simulation():
                   f"Reward={reward:.2f}")
         
         if terminated:
-            print(f"\n\u26a0\ufe0f Episode nach {i+1} Steps beendet")
+            print(f"\n[WARN] Episode nach {i+1} Steps beendet")
             break
     
-    print("\n\u2705 Simulation erfolgreich!\n")
+    print("\n[OK] Simulation erfolgreich!\n")
 
 
 if __name__ == "__main__":
@@ -80,7 +80,7 @@ if __name__ == "__main__":
         test_fixed_initial_conditions()
         test_basic_simulation()
         
-        print("\u2705 Alle Tests bestanden!")
+        print("[SUCCESS] Alle Tests bestanden!")
     except Exception as e:
-        print(f"\u274c Test fehlgeschlagen: {e}")
+        print(f"[FAILED] Test fehlgeschlagen: {e}")
         raise
