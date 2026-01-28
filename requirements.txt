@@ -1,23 +1,23 @@
 # Core (aktuell gebraucht)
-gymnasium==0.28.1               # Environment Framework (Ray 2.9.0 compatible)
+gymnasium==0.29.1               # Environment Framework (Ray 2.30 compatible)
 PyYAML==6.0.1                   # Config Files
 numpy==1.26.4                   # Berechnungen
 
 # Multi-Agent RL Training
-ray[rllib]==2.9.0               # RLlib für Multi-Agent Training (stable version)
+ray[rllib]==2.30.0              # RLlib fuer Multi-Agent Training (Python 3.11 compatible, pre-breaking changes)
 torch==2.1.0                    # Deep Learning Backend
 
-# Visualization (später für Frontend)
+# Visualization (spaeter fuer Frontend)
 # matplotlib==3.8.0
 # plotly==5.18.0
 
-# Web (später für Backend/Frontend)
+# Web (spaeter fuer Backend/Frontend)
 # streamlit==1.29.0             # Frontend
 # fastapi==0.109.0              # Backend API
 # uvicorn[standard]==0.27.0     # Backend Server
 # requests==2.31.0              # HTTP Client
 
-# Cloud (später für Deployment)
+# Cloud (spaeter fuer Deployment)
 # gcsfs==2023.12.0
 # google-cloud-storage==2.14.0
 # google-cloud-pubsub==2.18.4
