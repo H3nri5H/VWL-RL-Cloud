@@ -16,7 +16,7 @@ class SimpleEconomyEnv(gym.Env):
     
     metadata = {'render_modes': []}
     
-    def __init__(self, config_path='configs/agent_config.yaml'):
+    def __init__(self, config_path='configs/agent_config.yaml', seed=None):
         super().__init__()
         
         # Config laden
@@ -33,6 +33,9 @@ class SimpleEconomyEnv(gym.Env):
         self.days_per_year = self.config['simulation']['days_per_year']
         self.max_years = self.config['simulation']['max_years']
         self.max_steps = self.days_per_year * self.max_years
+        
+        # Seed fuer Reproduzierbarkeit
+        self.init_seed = seed
         
         # Zeitvariablen
         self.current_step = 0
@@ -55,7 +58,14 @@ class SimpleEconomyEnv(gym.Env):
         self.firms = []
     
     def _initialize_initial_conditions(self):
-        """Erstelle fixe Startbedingungen (NUR EINMAL beim Training-Start)"""
+        """Erstelle fixe Startbedingungen (NUR EINMAL beim Training-Start)
+        
+        Wenn seed gesetzt ist, sind die Startbedingungen reproduzierbar.
+        """
+        
+        # Seed setzen fuer reproduzierbare Startbedingungen
+        if self.init_seed is not None:
+            np.random.seed(self.init_seed)
         
         # Haushalte: Jeder kriegt zufaelligen Wert aus Range
         h_config = self.config['households']
@@ -84,7 +94,12 @@ class SimpleEconomyEnv(gym.Env):
             for _ in range(self.num_firms)
         ]
         
-        print("[OK] Initiale Bedingungen erstellt (fix fuer alle Episoden):")
+        # Seed zuruecksetzen damit nachfolgende Operations nicht deterministisch sind
+        if self.init_seed is not None:
+            np.random.seed(None)
+        
+        seed_info = f" (seed={self.init_seed})" if self.init_seed is not None else " (random)"
+        print(f"[OK] Initiale Bedingungen erstellt{seed_info}:")
         print(f"     Haushalte: {self.num_households} mit Cash {min(self.initial_household_cash):.0f} EUR - {max(self.initial_household_cash):.0f} EUR")
         print(f"     Firmen: {self.num_firms} mit Kapital {min(self.initial_firm_capital):.0f} EUR - {max(self.initial_firm_capital):.0f} EUR")
     
@@ -195,17 +210,34 @@ if __name__ == "__main__":
     # Test
     print("[TEST] Testing SimpleEconomyEnv...\n")
     
-    env = SimpleEconomyEnv()
+    # Mit Seed - reproduzierbar
+    print("=== Test mit Seed ===\n")
+    env1 = SimpleEconomyEnv(seed=42)
+    obs1, info1 = env1.reset()
+    print(f"Haushalt 0: {env1.households[0]['cash']:.2f} EUR\n")
     
-    obs, info = env.reset()
-    print(f"\n[OK] Reset successful")
-    print(f"     Info: {info}\n")
+    # Gleiches Seed - sollte gleiche Werte haben!
+    env2 = SimpleEconomyEnv(seed=42)
+    obs2, info2 = env2.reset()
+    print(f"Haushalt 0 (Env2): {env2.households[0]['cash']:.2f} EUR")
+    
+    if env1.households[0]['cash'] == env2.households[0]['cash']:
+        print("[OK] Seeds funktionieren - Werte sind identisch!\n")
+    else:
+        print("[ERROR] Seeds funktionieren nicht!\n")
+    
+    # Ohne Seed - random
+    print("=== Test ohne Seed (random) ===\n")
+    env3 = SimpleEconomyEnv()
+    obs3, info3 = env3.reset()
+    print(f"Haushalt 0 (Env3): {env3.households[0]['cash']:.2f} EUR\n")
     
     # Ein paar Steps
+    print("=== Steps Test ===\n")
     for i in range(5):
-        action = env.action_space.sample()
-        obs, reward, terminated, truncated, info = env.step(action)
-        print(f"Step {i+1}: Reward={reward:.2f}, Bankrupt H={info['bankrupt_households']}, F={info['bankrupt_firms']}")
+        action = env1.action_space.sample()
+        obs, reward, terminated, truncated, info = env1.step(action)
+        print(f"Step {i+1}: Reward={reward:.2f}")
         
         if terminated:
             break
