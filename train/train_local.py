@@ -72,12 +72,13 @@ def train_economy(args):
     }
     
     # PPO Config
-    # Ray 2.39 API Updates:
-    # - num_sgd_iter -> num_epochs
-    # - rollouts() -> env_runners()
-    # - num_rollout_workers -> num_env_runners
+    # Use old API stack (stable and compatible with our MultiAgentEnv)
     config = (
         PPOConfig()
+        .api_stack(
+            enable_rl_module_and_learner=False,
+            enable_env_runner_and_connector_v2=False
+        )
         .environment(
             env="economy",
             env_config={
@@ -87,8 +88,8 @@ def train_economy(args):
         .framework("torch")
         .training(
             train_batch_size=4000,
-            minibatch_size=128,
-            num_epochs=10,  # Updated: num_sgd_iter -> num_epochs
+            sgd_minibatch_size=128,  # Old API uses sgd_minibatch_size
+            num_sgd_iter=10,
             lr=0.0003,
             gamma=0.99,
             lambda_=0.95,
@@ -100,9 +101,9 @@ def train_economy(args):
             policy_mapping_fn=policy_mapping_fn,
             policies_to_train=['household_policy', 'firm_policy']
         )
-        .env_runners(  # Updated: rollouts() -> env_runners()
-            num_env_runners=args.num_workers,  # Updated: num_rollout_workers -> num_env_runners
-            num_envs_per_env_runner=1
+        .rollouts(  # Old API uses rollouts()
+            num_rollout_workers=args.num_workers,
+            num_envs_per_worker=1
         )
         .resources(
             num_gpus=args.num_gpus
@@ -162,7 +163,7 @@ if __name__ == "__main__":
         "--num-workers",
         type=int,
         default=2,
-        help="Number of env runners (default: 2)"
+        help="Number of rollout workers (default: 2)"
     )
     parser.add_argument(
         "--num-cpus",
