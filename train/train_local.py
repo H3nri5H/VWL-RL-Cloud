@@ -83,7 +83,7 @@ def train_economy(args):
         .framework("torch")
         .training(
             train_batch_size=4000,
-            sgd_minibatch_size=128,
+            minibatch_size=128,  # Updated API: sgd_minibatch_size -> minibatch_size
             num_sgd_iter=10,
             lr=0.0003,
             gamma=0.99,
