@@ -10,15 +10,15 @@ torch==2.1.0                    # Deep Learning Backend
 # Fix PyArrow version for Python 3.11
 pyarrow>=12.0.0                 # Modern PyArrow with pre-built wheels for Python 3.11
 
-# Visualization (spaeter fuer Frontend)
-# matplotlib==3.8.0
-# plotly==5.18.0
+# Visualization (fuer Evaluation & Dashboard)
+matplotlib==3.8.0
+plotly==5.18.0
 
-# Web (spaeter fuer Backend/Frontend)
-# streamlit==1.29.0             # Frontend
-# fastapi==0.109.0              # Backend API
-# uvicorn[standard]==0.27.0     # Backend Server
-# requests==2.31.0              # HTTP Client
+# Web (fuer Dashboard & Backend)
+streamlit==1.29.0             # Frontend
+fastapi==0.109.0              # Backend API
+uvicorn[standard]==0.27.0     # Backend Server
+requests==2.31.0              # HTTP Client
 
 # Cloud (spaeter fuer Deployment)
 # gcsfs==2023.12.0
