@@ -1,10 +1,10 @@
 # Core (aktuell gebraucht)
-gymnasium==1.0.0                # Environment Framework (updated for Ray 2.39.0)
+gymnasium==0.28.1               # Environment Framework (Ray 2.9.0 compatible)
 PyYAML==6.0.1                   # Config Files
 numpy==1.26.4                   # Berechnungen
 
 # Multi-Agent RL Training
-ray[rllib]==2.39.0              # RLlib für Multi-Agent Training (Python 3.11 kompatibel)
+ray[rllib]==2.9.0               # RLlib für Multi-Agent Training (stable version)
 torch==2.1.0                    # Deep Learning Backend
 
 # Visualization (später für Frontend)
