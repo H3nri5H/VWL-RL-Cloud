@@ -24,6 +24,7 @@ from ray import tune
 from ray.rllib.algorithms.ppo import PPOConfig
 from ray.rllib.policy.policy import PolicySpec
 from ray.tune.registry import register_env
+from ray.tune import CLIReporter
 
 from envs.rllib_economy_env import RLlibEconomyEnv
 
@@ -130,41 +131,44 @@ def train_economy(args):
     storage_path = Path(args.output_dir).absolute()
     storage_path.mkdir(parents=True, exist_ok=True)
     
-    # Custom progress reporter - minimal output
-    from ray.tune import CLIReporter
+    # Custom progress reporter - LIVE UPDATES!
     reporter = CLIReporter(
-        max_report_frequency=30,
-        metric_columns=[
-            "training_iteration",
-            "timesteps_total",
-            "episode_reward_mean",
-            "time_total_s"
-        ],
-        max_progress_rows=10,
+        max_report_frequency=10,  # Update alle 10 Sekunden
+        metric_columns={
+            "training_iteration": "Iter",
+            "timesteps_total": "Timesteps",
+            "env_runners/episode_return_mean": "Reward",
+            "env_runners/episode_len_mean": "Ep.Len",
+            "time_total_s": "Time(s)",
+            "info/learner/default_policy/learner_stats/policy_loss": "Policy Loss",
+        },
+        metric='env_runners/episode_return_mean',
+        mode='max',
+        max_progress_rows=20,
         max_error_rows=1,
-        max_column_length=20
+        max_column_length=15,
+        print_intermediate_tables=True  # Show updates!
     )
     
-    # Suppress stdout during training setup
-    with contextlib.redirect_stdout(io.StringIO()), \
-         contextlib.redirect_stderr(io.StringIO()):
-        
-        # Ray 2.30.0: Use absolute storage_path
-        result = tune.run(
-            "PPO",
-            name="economy_training",
-            config=config.to_dict(),
-            stop={
-                "timesteps_total": args.timesteps
-            },
-            checkpoint_freq=args.checkpoint_freq,
-            checkpoint_at_end=True,
-            storage_path=str(storage_path),
-            verbose=0,
-            progress_reporter=reporter,
-            log_to_file=True,
-            raise_on_failed_trial=False
-        )
+    print("Tipp: Starte in einem zweiten Terminal: tensorboard --logdir ray_results/economy_training\n")
+    print("="*60 + "\n")
+    
+    # Ray 2.30.0: Use absolute storage_path - NO OUTPUT SUPPRESSION!
+    result = tune.run(
+        "PPO",
+        name="economy_training",
+        config=config.to_dict(),
+        stop={
+            "timesteps_total": args.timesteps
+        },
+        checkpoint_freq=args.checkpoint_freq,
+        checkpoint_at_end=True,
+        storage_path=str(storage_path),
+        verbose=1,  # Show progress!
+        progress_reporter=reporter,
+        log_to_file=True,
+        raise_on_failed_trial=False
+    )
     
     print("\n" + "="*60)
     print("[SUCCESS] Training abgeschlossen!")
@@ -182,8 +186,13 @@ def train_economy(args):
             print(f"  Iterations: {trial.last_result.get('training_iteration', 'N/A')}")
             print(f"  Timesteps: {trial.last_result.get('timesteps_total', 'N/A'):,}")
             
-            # Safe formatting for episode_reward_mean
-            reward = trial.last_result.get('episode_reward_mean', None)
+            # Try different reward keys
+            reward = None
+            for key in ['env_runners/episode_return_mean', 'episode_reward_mean', 'episode_return_mean']:
+                reward = trial.last_result.get(key)
+                if reward is not None:
+                    break
+            
             if reward is not None and isinstance(reward, (int, float)):
                 print(f"  Episode Reward: {reward:.2f}")
             else:
