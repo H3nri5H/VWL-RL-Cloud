@@ -79,7 +79,7 @@ def quick_test():
         )
     }
     
-    # Ray 2.9.0 - stable API
+    # Ray 2.30.0 - stable API
     config = (
         PPOConfig()
         .environment(
@@ -108,8 +108,18 @@ def quick_test():
     result = algo.train()
     
     print(f"      OK Training erfolgreich!")
-    print(f"         Episode Reward Mean: {result['episode_reward_mean']:.2f}")
-    print(f"         Episodes: {result['episodes_this_iter']}")
+    
+    # Ray 2.30.0 keys - flexible handling
+    if 'sampler_results' in result:
+        if 'episode_reward_mean' in result['sampler_results']:
+            print(f"         Episode Reward Mean: {result['sampler_results']['episode_reward_mean']:.2f}")
+    elif 'episode_reward_mean' in result:
+        print(f"         Episode Reward Mean: {result['episode_reward_mean']:.2f}")
+    
+    if 'episodes_this_iter' in result:
+        print(f"         Episodes: {result['episodes_this_iter']}")
+    
+    print(f"         Timesteps: {result.get('timesteps_total', 0)}")
     
     algo.stop()
     ray.shutdown()
