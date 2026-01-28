@@ -79,32 +79,29 @@ def quick_test():
         )
     }
     
-    # IMPORTANT: api_stack() must be called FIRST to set old API mode
-    config = (
-        PPOConfig()
-        .api_stack(
-            enable_rl_module_and_learner=False,
-            enable_env_runner_and_connector_v2=False
-        )
-        .framework("torch")
-        .environment(
-            env="economy",
-            env_config={'config_path': 'configs/agent_config.yaml'}
-        )
-        .training(
-            train_batch_size=200,
-            sgd_minibatch_size=50,
-            num_sgd_iter=3
-        )
-        .multi_agent(
-            policies=policies,
-            policy_mapping_fn=policy_mapping_fn,
-            policies_to_train=['household_policy', 'firm_policy']
-        )
-        .rollouts(
-            num_rollout_workers=1
-        )
+    # Use direct dict config to avoid API issues
+    config = PPOConfig()
+    config.environment(
+        env="economy",
+        env_config={'config_path': 'configs/agent_config.yaml'}
     )
+    config.framework("torch")
+    config.multi_agent(
+        policies=policies,
+        policy_mapping_fn=policy_mapping_fn,
+        policies_to_train=['household_policy', 'firm_policy']
+    )
+    config.rollouts(
+        num_rollout_workers=1
+    )
+    
+    # Set training params directly on config object
+    config.train_batch_size = 200
+    config.lr = 0.0003
+    config.gamma = 0.99
+    config.lambda_ = 0.95
+    config.sgd_minibatch_size = 50
+    config.num_sgd_iter = 3
     
     algo = config.build()
     
