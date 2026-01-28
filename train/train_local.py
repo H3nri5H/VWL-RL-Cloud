@@ -71,7 +71,7 @@ def train_economy(args):
         )
     }
     
-    # PPO Config - Ray 2.9.0 stable API
+    # PPO Config - Ray 2.30.0 API
     config = (
         PPOConfig()
         .environment(
@@ -111,6 +111,7 @@ def train_economy(args):
     # Training starten
     print("[START] Training...\n")
     
+    # Ray 2.30.0: Use storage_path instead of local_dir
     tune.run(
         "PPO",
         name="economy_training",
@@ -120,7 +121,7 @@ def train_economy(args):
         },
         checkpoint_freq=args.checkpoint_freq,
         checkpoint_at_end=True,
-        local_dir=args.output_dir,
+        storage_path=args.output_dir,  # Changed from local_dir
         verbose=1
     )
     
