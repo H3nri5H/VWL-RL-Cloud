@@ -3,7 +3,8 @@
 Fuehrt einen kurzen Test durch:
 1. Environment initialisieren
 2. Prueft ob initiale Bedingungen fix bleiben
-3. Simuliert ein paar Steps
+3. Prueft ob Seeds funktionieren (Reproduzierbarkeit)
+4. Simuliert ein paar Steps
 """
 
 import sys
@@ -17,9 +18,10 @@ from envs.simple_economy_env import SimpleEconomyEnv
 
 def test_fixed_initial_conditions():
     """Test: Initiale Bedingungen bleiben ueber Episoden fix"""
-    print("[TEST] Fixe Startbedingungen\n")
+    print("[TEST 1] Fixe Startbedingungen\n")
     
-    env = SimpleEconomyEnv()
+    # Mit festem Seed
+    env = SimpleEconomyEnv(seed=42)
     
     # Episode 1
     obs1, info1 = env.reset()
@@ -45,11 +47,37 @@ def test_fixed_initial_conditions():
     print(f"     Firma 0: Immer {firm_capital_ep1[0]:.2f} EUR\n")
 
 
+def test_seed_reproducibility():
+    """Test: Gleicher Seed = Gleiche Startbedingungen"""
+    print("[TEST 2] Seed Reproduzierbarkeit\n")
+    
+    # Environment 1 mit Seed 42
+    env1 = SimpleEconomyEnv(seed=42)
+    env1.reset()
+    cash_env1 = [h['cash'] for h in env1.households]
+    capital_env1 = [f['capital'] for f in env1.firms]
+    
+    # Environment 2 mit gleichem Seed 42
+    env2 = SimpleEconomyEnv(seed=42)
+    env2.reset()
+    cash_env2 = [h['cash'] for h in env2.households]
+    capital_env2 = [f['capital'] for f in env2.firms]
+    
+    # Vergleich
+    assert cash_env1 == cash_env2, "Haushalte haben unterschiedliche Werte trotz gleichem Seed!"
+    assert capital_env1 == capital_env2, "Firmen haben unterschiedliche Werte trotz gleichem Seed!"
+    
+    print("[OK] Seed funktioniert - gleiche Seeds = gleiche Startbedingungen!")
+    print(f"     Beide Environments: Haushalt 0 = {cash_env1[0]:.2f} EUR")
+    print(f"     Beide Environments: Firma 0 = {capital_env1[0]:.2f} EUR\n")
+
+
 def test_basic_simulation():
     """Test: Basis-Simulation laeuft"""
-    print("[TEST] Basis-Simulation\n")
+    print("[TEST 3] Basis-Simulation\n")
     
-    env = SimpleEconomyEnv()
+    # Mit festem Seed fuer konsistente Tests
+    env = SimpleEconomyEnv(seed=123)
     obs, info = env.reset()
     
     print(f"Start: {info['total_household_cash']:.0f} EUR (Haushalte), {info['total_firm_capital']:.0f} EUR (Firmen)")
@@ -78,9 +106,12 @@ if __name__ == "__main__":
     
     try:
         test_fixed_initial_conditions()
+        test_seed_reproducibility()
         test_basic_simulation()
         
+        print("="*60)
         print("[SUCCESS] Alle Tests bestanden!")
+        print("="*60)
     except Exception as e:
         print(f"[FAILED] Test fehlgeschlagen: {e}")
         raise
