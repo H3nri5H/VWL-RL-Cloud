@@ -111,7 +111,11 @@ def train_economy(args):
     # Training starten
     print("[START] Training...\n")
     
-    # Ray 2.30.0: Use storage_path instead of local_dir
+    # Convert to absolute path for PyArrow
+    storage_path = Path(args.output_dir).absolute()
+    storage_path.mkdir(parents=True, exist_ok=True)
+    
+    # Ray 2.30.0: Use absolute storage_path
     tune.run(
         "PPO",
         name="economy_training",
@@ -121,12 +125,12 @@ def train_economy(args):
         },
         checkpoint_freq=args.checkpoint_freq,
         checkpoint_at_end=True,
-        storage_path=args.output_dir,  # Changed from local_dir
+        storage_path=str(storage_path),  # Absolute path as string
         verbose=1
     )
     
     print("\n[SUCCESS] Training abgeschlossen!")
-    print(f"Models gespeichert in: {args.output_dir}")
+    print(f"Models gespeichert in: {storage_path}")
     
     ray.shutdown()
 
