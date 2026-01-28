@@ -1,11 +1,11 @@
-# VWL-RL-Cloud 🏭
+# VWL-RL-Cloud
 
-**Multi-Agent Reinforcement Learning für Volkswirtschafts-Simulation**  
+**Multi-Agent Reinforcement Learning fuer Volkswirtschafts-Simulation**  
 DHSH Module: Fortgeschrittene KI-Anwendungen & Cloud & Big Data | Januar 2026
 
 ---
 
-## 💁 Überblick
+## Ueberblick
 
 Simulation einer Volkswirtschaft mit RL-Agents:
 - **10 Haushalte** (konsumieren, arbeiten)
@@ -16,7 +16,7 @@ Jeder Agent wird von einem eigenen RL-Model gesteuert.
 
 ---
 
-## 🚀 Quick Start (Lokal)
+## Quick Start (Lokal)
 
 ### 1. Repository klonen
 
@@ -44,16 +44,16 @@ python envs/simple_economy_env.py
 
 **Ausgabe sollte sein:**
 ```
-✅ Initiale Bedingungen erstellt (fix für alle Episoden):
-   Haushalte: 10 mit Cash 1200€ - 4800€
-   Firmen: 5 mit Kapital 120000€ - 480000€
+[OK] Initiale Bedingungen erstellt (seed=42):
+     Haushalte: 10 mit Cash 1200 EUR - 4800 EUR
+     Firmen: 5 mit Kapital 120000 EUR - 480000 EUR
 
-🧪 Testing SimpleEconomyEnv...
-✅ Reset successful
+[TEST] Testing SimpleEconomyEnv...
+[OK] Reset successful
 ...
 ```
 
-### 4. Training (kommt später)
+### 4. Training (kommt spaeter)
 
 ```bash
 # Lokal trainieren (wenn implementiert)
@@ -64,45 +64,45 @@ python train/train_local.py --version v1.0
 
 ---
 
-## 📋 Projekt-Struktur
+## Projekt-Struktur
 
 ```
 VWL-RL-Cloud/
 ├── configs/
-│   └── agent_config.yaml         # ✅ Startbedingungen (Min/Max für alle)
+│   └── agent_config.yaml         # Startbedingungen (Min/Max fuer alle)
 │
 ├── envs/
-│   └── simple_economy_env.py     # ✅ Gymnasium Environment (Haushalte+Firmen)
+│   └── simple_economy_env.py     # Gymnasium Environment (Haushalte+Firmen)
 │
 ├── tests/
-│   └── test_simple_env.py        # ✅ Test für fixe Startbedingungen
+│   └── test_simple_env.py        # Test fuer fixe Startbedingungen + Seeds
 │
-├── train/                       # ❌ TODO: Training Scripts
+├── train/                       # TODO: Training Scripts
 │   ├── train_local.py
 │   └── train_cloud.py
 │
-├── backend/                     # ❌ TODO: FastAPI (zustandsbehaftet)
+├── backend/                     # TODO: FastAPI (zustandsbehaftet)
 │   ├── serve.py
 │   └── Dockerfile
 │
-├── frontend/                    # ❌ TODO: Streamlit (zustandslos)
+├── frontend/                    # TODO: Streamlit (zustandslos)
 │   ├── app.py
 │   └── Dockerfile
 │
-├── deploy/                      # ❌ TODO: Cloud Deployment
+├── deploy/                      # TODO: Cloud Deployment
 │   ├── terraform/
 │   └── k8s/
 │
 ├── models/                      # Models werden hier gespeichert
-│   └── latest_model.zip         # Für Dozenten (kommt später)
+│   └── latest_model.zip         # Fuer Dozenten (kommt spaeter)
 │
-├── DOCUMENTATION.md            # ✅ Was wurde gemacht + Warum
+├── DOCUMENTATION.md            # Was wurde gemacht + Warum
 └── README.md                   # Diese Datei (Setup-Anleitung)
 ```
 
 ---
 
-## ⚙️ Konfiguration
+## Konfiguration
 
 ### Agent-Parameter anpassen
 
@@ -120,8 +120,8 @@ firms:
   count: 5  # Anzahl Unternehmen
   
   initial_capital:
-    min: 100000  # 100k€
-    max: 500000  # 500k€
+    min: 100000  # 100k EUR
+    max: 500000  # 500k EUR
   
   initial_employees:
     min: 3
@@ -132,25 +132,50 @@ simulation:
   max_years: 5        # Training-Dauer
 ```
 
-**Wichtig:** Diese Werte werden **einmal beim Init** gezogen und bleiben dann **über alle Episoden fix**!
+**Wichtig:** Diese Werte werden **einmal beim Init** gezogen und bleiben dann **ueber alle Episoden fix**!
 
 ---
 
-## 🧠 Wie funktioniert das?
+## Wie funktioniert das?
 
-### Startbedingungen
+### Startbedingungen mit Seeds
+
+#### Reproduzierbare Experimente (mit Seed)
 
 ```python
-# Beim Training-Start (env.__init__):
-env = SimpleEconomyEnv()
+# Mit festem Seed - IMMER gleiche Startbedingungen
+env = SimpleEconomyEnv(seed=42)
 
-# Zieht für jeden Agent zufällige Werte:
-Haushalt_0: 2500€  (aus [1000-5000€])
-Haushalt_1: 4200€  (aus [1000-5000€])
-Firma_0: 250.000€  (aus [100k-500k€])
+# Experiment 1
+env = SimpleEconomyEnv(seed=42)
+env.reset()
+# Haushalt_0: 3244.56 EUR
 
-# Diese Werte bleiben FIX!
+# Experiment 2 (Tage spaeter)
+env = SimpleEconomyEnv(seed=42)
+env.reset()
+# Haushalt_0: 3244.56 EUR  <-- GLEICH!
 ```
+
+**Nutzen:**
+- Experimente sind reproduzierbar
+- Papers koennen repliziert werden
+- Debugging einfacher
+
+#### Zufaellige Variation (ohne Seed)
+
+```python
+# Ohne Seed - Jedes Mal anders
+env1 = SimpleEconomyEnv()
+# Haushalt_0: 2500 EUR
+
+env2 = SimpleEconomyEnv()
+# Haushalt_0: 4123 EUR  <-- ANDERS!
+```
+
+**Nutzen:**
+- Generalisierung testen
+- Robustheit pruefen
 
 ### Episoden
 
@@ -162,89 +187,79 @@ for day in range(250):  # 1 Jahr
     obs, reward, done, info = env.step(action)
 
 # Episode 2
-obs = env.reset()  # WIEDER bei Startwerten (NICHT weiterführen!)
-# Haushalt_0 startet wieder mit 2500€
+obs = env.reset()  # WIEDER bei Startwerten (NICHT weiterfuehren!)
+# Haushalt_0 startet wieder mit 2500 EUR (oder was der Seed vorgab)
 ```
 
 **Wichtig:** 
-- Gewinn aus Episode 1 wird **NICHT** in Episode 2 übernommen
+- Gewinn aus Episode 1 wird **NICHT** in Episode 2 uebernommen
 - Jede Episode startet "frisch" mit den fixen Startwerten
 - Aber: RL-Agent **lernt** aus allen Episoden!
 
 ---
 
-## 📚 Module-Anforderungen
+## Development
 
-### Fortgeschrittene KI-Anwendungen
-- ✅ Multi-Agent Reinforcement Learning
-- ✅ Custom Gymnasium Environment
-- ❌ RL-Training (TODO)
-- ❌ Reward-Design (TODO)
-
-### Cloud & Big Data
-- ❌ Zustandslose Komponente (Frontend)
-- ❌ Zustandsbehaftete Komponente (Backend mit Models)
-- ❌ Cloud Deployment (GCP)
-- ❌ CI/CD Pipeline
-
----
-
-## 🛠️ Development
-
-### Tests ausführen
+### Tests ausfuehren
 
 ```bash
 python tests/test_simple_env.py
 ```
 
-**Prüft:**
-- ✅ Startbedingungen bleiben über Episoden fix
-- ✅ Environment kann resetten
-- ✅ Steps funktionieren
+**Prueft:**
+- Startbedingungen bleiben ueber Episoden fix
+- Seeds funktionieren (Reproduzierbarkeit)
+- Environment kann resetten
+- Steps funktionieren
 
 ### Environment direkt nutzen
 
 ```python
 from envs.simple_economy_env import SimpleEconomyEnv
 
+# Mit Seed (reproduzierbar)
+env = SimpleEconomyEnv(seed=42)
+
+# Ohne Seed (random)
 env = SimpleEconomyEnv()
+
 obs, info = env.reset()
 
 # Manuelle Aktionen
 for _ in range(10):
-    action = env.action_space.sample()  # Zufällige Action
+    action = env.action_space.sample()  # Zufaellige Action
     obs, reward, done, info = env.step(action)
     print(f"Day {info['day']}: Reward={reward}")
 ```
 
 ---
 
-## 📝 Dokumentation
+## Dokumentation
 
 - **[DOCUMENTATION.md](DOCUMENTATION.md)** - Was wurde gemacht + Design-Entscheidungen
 - **[configs/agent_config.yaml](configs/agent_config.yaml)** - Parameter-Dokumentation
 
 ---
 
-## 👥 Team
+## Team
 
 **H3nri5H** (Foxyy)  
 DHSH - Januar 2026
 
 ---
 
-## 📌 Status
+## Status
 
 **Version:** 0.1 - Basis-Setup  
 **Stand:** 28.01.2026
 
 **Implementiert:**
-- ✅ Config mit Min/Max-Bereichen
-- ✅ Simple Environment (Haushalte + Firmen)
-- ✅ Fixe Startbedingungen
-- ✅ Tests
+- Config mit Min/Max-Bereichen
+- Simple Environment (Haushalte + Firmen)
+- Fixe Startbedingungen mit Seed-Support
+- Tests (inkl. Seed-Reproduzierbarkeit)
 
-**Nächste Schritte:**
+**Naechste Schritte:**
 1. Wirtschafts-Logik implementieren (Produktion, Konsum, Markt)
 2. Action/Observation Spaces definieren
 3. Reward-Funktionen designen
@@ -254,4 +269,4 @@ DHSH - Januar 2026
 
 ---
 
-**Für Dozenten:** Ein trainiertes Model wird später in `models/latest_model.zip` hochgeladen, sodass kein Training notwendig ist.
+**Fuer Dozenten:** Ein trainiertes Model wird spaeter in `models/latest_model.zip` hochgeladen, sodass kein Training notwendig ist.
