@@ -1,3 +1,3 @@
-from envs.economy_env import EconomyEnv
+from envs.simple_economy_env import SimpleEconomyEnv
 
-__all__ = ['EconomyEnv']
+__all__ = ['SimpleEconomyEnv']
