@@ -1,7 +1,7 @@
 """Simple Multi-Agent Economy Environment
 
 NUR Haushalte und Unternehmen - KEIN Staat (erstmal)
-Sehr basic - kann später erweitert werden
+Sehr basic - kann spaeter erweitert werden
 """
 
 import gymnasium as gym
@@ -41,7 +41,7 @@ class SimpleEconomyEnv(gym.Env):
         # Initiale Bedingungen werden EINMAL beim Init gesetzt
         self._initialize_initial_conditions()
         
-        # Action/Observation Spaces (erstmal placeholder - wird später definiert)
+        # Action/Observation Spaces (erstmal placeholder - wird spaeter definiert)
         # TODO: Richtig definieren wenn Aktionen klar sind
         self.observation_space = spaces.Box(
             low=-10.0, high=10.0, shape=(10,), dtype=np.float32
@@ -57,7 +57,7 @@ class SimpleEconomyEnv(gym.Env):
     def _initialize_initial_conditions(self):
         """Erstelle fixe Startbedingungen (NUR EINMAL beim Training-Start)"""
         
-        # Haushalte: Jeder kriegt zufälligen Wert aus Range
+        # Haushalte: Jeder kriegt zufaelligen Wert aus Range
         h_config = self.config['households']
         self.initial_household_cash = [
             np.random.uniform(
@@ -67,7 +67,7 @@ class SimpleEconomyEnv(gym.Env):
             for _ in range(self.num_households)
         ]
         
-        # Firmen: Jede kriegt zufällige Werte aus Range
+        # Firmen: Jede kriegt zufaellige Werte aus Range
         f_config = self.config['firms']
         self.initial_firm_capital = [
             np.random.uniform(
@@ -84,15 +84,15 @@ class SimpleEconomyEnv(gym.Env):
             for _ in range(self.num_firms)
         ]
         
-        print("\u2705 Initiale Bedingungen erstellt (fix für alle Episoden):")
-        print(f"   Haushalte: {self.num_households} mit Cash {min(self.initial_household_cash):.0f}€ - {max(self.initial_household_cash):.0f}€")
-        print(f"   Firmen: {self.num_firms} mit Kapital {min(self.initial_firm_capital):.0f}€ - {max(self.initial_firm_capital):.0f}€")
+        print("[OK] Initiale Bedingungen erstellt (fix fuer alle Episoden):")
+        print(f"     Haushalte: {self.num_households} mit Cash {min(self.initial_household_cash):.0f} EUR - {max(self.initial_household_cash):.0f} EUR")
+        print(f"     Firmen: {self.num_firms} mit Kapital {min(self.initial_firm_capital):.0f} EUR - {max(self.initial_firm_capital):.0f} EUR")
     
     def reset(self, seed=None, options=None):
-        """Zurück zu initialen Bedingungen (werden NICHT neu gewürfelt!)"""
+        """Zurueck zu initialen Bedingungen (werden NICHT neu gewuerfelt!)"""
         super().reset(seed=seed)
         
-        # Zeit zurücksetzen
+        # Zeit zuruecksetzen
         self.current_step = 0
         self.current_day = 0
         
@@ -127,14 +127,14 @@ class SimpleEconomyEnv(gym.Env):
     def step(self, action):
         """Simuliere einen Betriebstag"""
         
-        # === PLACEHOLDER - Hier kommt später die Logik ===
+        # === PLACEHOLDER - Hier kommt spaeter die Logik ===
         # TODO: 
         # 1. Firmen produzieren
         # 2. Haushalte konsumieren
         # 3. Markt-Clearing
         # 4. Rewards berechnen
         
-        # Für jetzt: Simple Dummy-Logik
+        # Fuer jetzt: Simple Dummy-Logik
         for household in self.households:
             if not household['bankrupt']:
                 # Haushalte konsumieren etwas
@@ -147,7 +147,7 @@ class SimpleEconomyEnv(gym.Env):
         
         for firm in self.firms:
             if not firm['bankrupt']:
-                # Firmen zahlen Löhne
+                # Firmen zahlen Loehne
                 wages = firm['employees'] * 50
                 firm['capital'] -= wages
                 
@@ -155,7 +155,7 @@ class SimpleEconomyEnv(gym.Env):
                 if firm['capital'] < 0:
                     firm['bankrupt'] = True
         
-        # Zeit vorwärts
+        # Zeit vorwaerts
         self.current_step += 1
         self.current_day += 1
         
@@ -177,7 +177,7 @@ class SimpleEconomyEnv(gym.Env):
         return np.zeros(10, dtype=np.float32)
     
     def _get_info(self):
-        """Zusätzliche Infos"""
+        """Zusaetzliche Infos"""
         num_bankrupt_households = sum(1 for h in self.households if h['bankrupt'])
         num_bankrupt_firms = sum(1 for f in self.firms if f['bankrupt'])
         
@@ -193,13 +193,13 @@ class SimpleEconomyEnv(gym.Env):
 
 if __name__ == "__main__":
     # Test
-    print("\ud83e\uddea Testing SimpleEconomyEnv...\n")
+    print("[TEST] Testing SimpleEconomyEnv...\n")
     
     env = SimpleEconomyEnv()
     
     obs, info = env.reset()
-    print(f"\n\u2705 Reset successful")
-    print(f"   Info: {info}\n")
+    print(f"\n[OK] Reset successful")
+    print(f"     Info: {info}\n")
     
     # Ein paar Steps
     for i in range(5):
@@ -210,4 +210,4 @@ if __name__ == "__main__":
         if terminated:
             break
     
-    print("\n\u2705 Test completed!")
+    print("\n[OK] Test completed!")
