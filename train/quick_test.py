@@ -1,7 +1,7 @@
 """Quick Test: Multi-Agent Setup funktioniert?
 
 Testet:
-1. Environment lädt korrekt
+1. Environment laedt korrekt
 2. Alle 15 Agents sind vorhanden (10 Haushalte + 5 Firmen)
 3. Actions funktionieren
 4. Training startet
@@ -29,7 +29,7 @@ def policy_mapping_fn(agent_id, episode, worker, **kwargs):
 
 def quick_test():
     print("\n" + "="*60)
-    print("🧪 QUICK TEST: Multi-Agent Economy")
+    print("QUICK TEST: Multi-Agent Economy")
     print("="*60 + "\n")
     
     # 1. Environment Test
@@ -37,14 +37,14 @@ def quick_test():
     env = RLlibEconomyEnv({'config_path': 'configs/agent_config.yaml'})
     
     agent_ids = env.get_agent_ids()
-    print(f"      ✅ {len(agent_ids)} Agents gefunden")
+    print(f"      OK {len(agent_ids)} Agents gefunden")
     print(f"         - Haushalte: {sum(1 for a in agent_ids if 'household' in a)}")
     print(f"         - Firmen: {sum(1 for a in agent_ids if 'firm' in a)}")
     
     # 2. Reset Test
     print("\n[2/4] Environment Reset...")
     obs, infos = env.reset()
-    print(f"      ✅ Observations: {len(obs)} agents")
+    print(f"      OK Observations: {len(obs)} agents")
     print(f"         Household_0: {obs['household_0']}")
     print(f"         Firm_0: {obs['firm_0']}")
     
@@ -53,7 +53,7 @@ def quick_test():
     actions = env.action_space_sample()
     obs, rewards, terminateds, truncateds, infos = env.step(actions)
     
-    print(f"      ✅ Step erfolgreich")
+    print(f"      OK Step erfolgreich")
     print(f"         Reward Household_0: {rewards['household_0']:.2f}")
     print(f"         Reward Firm_0: {rewards['firm_0']:.2f}")
     
@@ -87,8 +87,8 @@ def quick_test():
         )
         .framework("torch")
         .training(
-            train_batch_size=200,  # Klein für Test
-            sgd_minibatch_size=50,
+            train_batch_size=200,
+            minibatch_size=50,  # Updated API: sgd_minibatch_size -> minibatch_size
             num_sgd_iter=3
         )
         .multi_agent(
@@ -103,20 +103,20 @@ def quick_test():
     
     algo = config.build()
     
-    print("      Training läuft...")
+    print("      Training laeuft...")
     result = algo.train()
     
-    print(f"      ✅ Training erfolgreich!")
-    print(f"         Episode Reward Mean: {result['episode_reward_mean']:.2f}")
-    print(f"         Episodes: {result['episodes_this_iter']}")
+    print(f"      OK Training erfolgreich!")
+    print(f"         Episode Reward Mean: {result['env_runners']['episode_reward_mean']:.2f}")
+    print(f"         Episodes: {result['env_runners']['episodes_this_iter']}")
     
     algo.stop()
     ray.shutdown()
     
     print("\n" + "="*60)
-    print("✅ ALLE TESTS BESTANDEN!")
+    print("ALLE TESTS BESTANDEN!")
     print("="*60)
-    print("\nNächster Schritt:")
+    print("\nNaechster Schritt:")
     print("  python train/train_local.py --timesteps 10000")
     print("\n")
 
