@@ -1,338 +1,257 @@
-# VWL-RL-Cloud 🎓
+# VWL-RL-Cloud 🏭
 
-**Volkswirtschafts-Simulation mit Reinforcement Learning + Cloud-Native Architecture**  
+**Multi-Agent Reinforcement Learning für Volkswirtschafts-Simulation**  
 DHSH Module: Fortgeschrittene KI-Anwendungen & Cloud & Big Data | Januar 2026
 
-[![Status](https://img.shields.io/badge/Status-Production%20Ready-brightgreen)]() [![Python](https://img.shields.io/badge/Python-3.11-blue)]() [![GCP](https://img.shields.io/badge/GCP-Cloud%20Native-orange)]() [![Kubernetes](https://img.shields.io/badge/Kubernetes-GKE-blue)]()
+---
+
+## 💁 Überblick
+
+Simulation einer Volkswirtschaft mit RL-Agents:
+- **10 Haushalte** (konsumieren, arbeiten)
+- **5 Unternehmen** (produzieren, stellen ein, setzen Preise)
+- **Kein Staat** (erstmal - fokus auf Basis-Interaktion)
+
+Jeder Agent wird von einem eigenen RL-Model gesteuert.
 
 ---
 
-## 🏗️ **Cloud-Native Architecture**
+## 🚀 Quick Start (Lokal)
 
-```
-┌─────────────────────────────────────────────────────┐
-│  DEVELOPER (Lokal)                                  │
-│  - Code schreiben, testen                           │
-│  - git push → triggert Cloud Build                  │
-└─────────────┬───────────────────────────────────────┘
-              │
-              ▼
-┌─────────────────────────────────────────────────────┐
-│  CLOUD BUILD (CI/CD) ✅                             │
-│  - Run Tests                                        │
-│  - Build Docker Images                              │
-│  - Push to GCR                                      │
-│  - Auto-Deploy to GKE                               │
-└─────────────┬───────────────────────────────────────┘
-              │
-              ▼
-┌─────────────────────────────────────────────────────┐
-│  GOOGLE KUBERNETES ENGINE (GKE) ✅                  │
-│  ┌─────────────────┐  ┌──────────────────┐         │
-│  │ Frontend Pods   │  │ Backend Pods     │         │
-│  │ (Streamlit)     │  │ (FastAPI+RL)     │         │
-│  │ 3 Replicas      │  │ 2 Replicas       │         │
-│  └─────────────────┘  └────────┬─────────┘         │
-│                                  │                   │
-│                                  │ Load Models       │
-│                                  ▼                   │
-│                     ┌────────────────────────┐      │
-│                     │ CLOUD STORAGE (GCS) ✅ │      │
-│                     │ - ppo_v1_10M.zip       │      │
-│                     │ - ppo_v2_50M.zip       │      │
-│                     └────────────────────────┘      │
-└─────────────────────────────────────────────────────┘
-              ▲
-              │ Training Complete Event
-              │
-┌─────────────────────────────────────────────────────┐
-│  PUB/SUB ✅                                         │
-│  - training-events topic                            │
-│  - backend subscribes → auto-loads new models       │
-└─────────────┬───────────────────────────────────────┘
-              │
-              ▼
-┌─────────────────────────────────────────────────────┐
-│  TRAINING PIPELINE (Cloud Run Job) ✅               │
-│  - Trains PPO model (24h, 10M steps)                │
-│  - Uploads to GCS                                   │
-│  - Publishes Pub/Sub event                          │
-└─────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────┐
-│  TERRAFORM (Infrastructure as Code) ✅              │
-│  - Defines all GCP resources                        │
-│  - terraform apply → creates everything             │
-└─────────────────────────────────────────────────────┘
-```
-
----
-
-## 🚀 **Quick Start**
-
-### **1. Lokale Entwicklung**
+### 1. Repository klonen
 
 ```bash
-# Clone
 git clone https://github.com/H3nri5H/VWL-RL-Cloud.git
 cd VWL-RL-Cloud
-
-# Setup (Windows)
-setup.bat
-
-# OR Python Setup
-python setup.py
-
-# Test lokal
-streamlit run frontend/app.py
 ```
 
-### **2. Cloud Deployment**
-
-#### **Schritt 1: Terraform Infrastructure**
+### 2. Dependencies installieren
 
 ```bash
-cd terraform
-
-# Config anpassen
-cp terraform.tfvars.example terraform.tfvars
-# Edit: project_id eintragen
-
-# Deploy!
-terraform init
-terraform plan
-terraform apply
+# Python 3.11+ required
+pip install -r requirements.txt
 ```
 
-**Erstellt:**
-- ✅ GKE Cluster (2 Nodes, auto-scaling 1-5)
-- ✅ Cloud Storage Buckets (models + logs)
-- ✅ Pub/Sub Topics & Subscriptions
-
-#### **Schritt 2: Build & Deploy**
+### 3. Environment testen
 
 ```bash
-# Setup Cloud Build Trigger (einmalig)
-gcloud builds triggers create github \
-  --repo-name=VWL-RL-Cloud \
-  --repo-owner=H3nri5H \
-  --branch-pattern="^main$" \
-  --build-config=cloudbuild.yaml
+# Basis-Test
+python tests/test_simple_env.py
 
-# Oder manuell bauen:
-gcloud builds submit --config=cloudbuild.yaml
+# Oder direkt Environment starten
+python envs/simple_economy_env.py
 ```
 
-**Cloud Build macht automatisch:**
-1. Tests ausführen
-2. Docker Images bauen (Backend + Frontend)
-3. Push zu GCR
-4. Deploy zu GKE
+**Ausgabe sollte sein:**
+```
+✅ Initiale Bedingungen erstellt (fix für alle Episoden):
+   Haushalte: 10 mit Cash 1200€ - 4800€
+   Firmen: 5 mit Kapital 120000€ - 480000€
 
-#### **Schritt 3: Access Application**
+🧪 Testing SimpleEconomyEnv...
+✅ Reset successful
+...
+```
+
+### 4. Training (kommt später)
 
 ```bash
-# Get External IPs
-kubectl get services
+# Lokal trainieren (wenn implementiert)
+python train/train_local.py --version v1.0
 
-# Frontend: http://<FRONTEND-EXTERNAL-IP>
-# Backend:  http://<BACKEND-EXTERNAL-IP>
+# Model liegt dann in: models/v1.0.zip
 ```
 
 ---
 
-## 🏋️ **Training in der Cloud**
-
-```bash
-# Build Training Image
-gcloud builds submit --config=train/cloudbuild-training.yaml
-
-# Job läuft automatisch (24h)
-# Check Status:
-gcloud run jobs executions list
-
-# Logs:
-gcloud run jobs logs read rl-training-job
-```
-
-**Was passiert:**
-1. Training läuft (10M steps, ~24h)
-2. Model wird zu GCS hochgeladen
-3. Pub/Sub Event wird publiziert
-4. Backend lädt neues Model automatisch
-5. Frontend kann neue Model-Version wählen
-
----
-
-## 📊 **Projekt-Struktur**
+## 📋 Projekt-Struktur
 
 ```
 VWL-RL-Cloud/
-├── terraform/                  # Infrastructure as Code ✅
-│   ├── main.tf                # Terraform Config
-│   ├── gke.tf                 # Kubernetes Cluster
-│   ├── storage.tf             # Cloud Storage Buckets
-│   └── pubsub.tf              # Event Topics
+├── configs/
+│   └── agent_config.yaml         # ✅ Startbedingungen (Min/Max für alle)
 │
-├── k8s/                        # Kubernetes Manifests ✅
-│   ├── backend-deployment.yaml
-│   ├── frontend-deployment.yaml
-│   └── README.md
+├── envs/
+│   └── simple_economy_env.py     # ✅ Gymnasium Environment (Haushalte+Firmen)
 │
-├── backend/                    # FastAPI Inference API
-│   ├── serve.py               # API mit GCS + Pub/Sub ✅
-│   ├── Dockerfile
-│   └── cloudbuild.yaml
+├── tests/
+│   └── test_simple_env.py        # ✅ Test für fixe Startbedingungen
 │
-├── frontend/                   # Streamlit Web UI
-│   ├── app.py                 # UI mit Backend Integration ✅
-│   ├── Dockerfile
-│   └── cloudbuild.yaml
+├── train/                       # ❌ TODO: Training Scripts
+│   ├── train_local.py
+│   └── train_cloud.py
 │
-├── train/                      # Training Pipeline ✅
-│   ├── train_cloud.py         # Cloud Training Script
-│   ├── Dockerfile.training
-│   └── cloudbuild-training.yaml
+├── backend/                     # ❌ TODO: FastAPI (zustandsbehaftet)
+│   ├── serve.py
+│   └── Dockerfile
 │
-├── envs/                       # RL Environments
-│   └── economy_env.py         # Gymnasium Env
+├── frontend/                    # ❌ TODO: Streamlit (zustandslos)
+│   ├── app.py
+│   └── Dockerfile
 │
-├── tests/                      # Tests
-│   └── test_env.py
+├── deploy/                      # ❌ TODO: Cloud Deployment
+│   ├── terraform/
+│   └── k8s/
 │
-├── cloudbuild.yaml            # Main CI/CD Pipeline ✅
-└── README.md                  # Diese Datei
+├── models/                      # Models werden hier gespeichert
+│   └── latest_model.zip         # Für Dozenten (kommt später)
+│
+├── DOCUMENTATION.md            # ✅ Was wurde gemacht + Warum
+└── README.md                   # Diese Datei (Setup-Anleitung)
 ```
 
 ---
 
-## 🎯 **Features**
+## ⚙️ Konfiguration
 
-### **Cloud-Native Technologies:**
+### Agent-Parameter anpassen
 
-✅ **Kubernetes (GKE)** - Container Orchestration  
-✅ **Cloud Storage** - ML Model Persistence  
-✅ **Pub/Sub** - Event-Driven Architecture  
-✅ **Terraform** - Infrastructure as Code  
-✅ **Cloud Build** - CI/CD Pipeline  
-✅ **Cloud Run Jobs** - Training Workloads  
+**Datei:** `configs/agent_config.yaml`
 
-### **Application Features:**
+```yaml
+households:
+  count: 10  # Anzahl Haushalte
+  
+  initial_cash:
+    min: 1000    # Minimum Startkapital
+    max: 5000    # Maximum Startkapital
 
-- 🧠 **Multi-Model Support** - Wähle zwischen verschiedenen RL-Models
-- 📊 **Live Simulation** - Interaktive Wirtschafts-Simulation
-- ⚙️ **Manual/Auto Mode** - Manuelle Steuerung oder RL-Agent
-- 📈 **Real-time Visualisierung** - BIP, Inflation, Arbeitslosigkeit
-- 🔄 **Auto-Scaling** - Horizontal Pod Autoscaler in GKE
-- 🔐 **IAM Security** - Service Accounts mit Least Privilege
+firms:
+  count: 5  # Anzahl Unternehmen
+  
+  initial_capital:
+    min: 100000  # 100k€
+    max: 500000  # 500k€
+  
+  initial_employees:
+    min: 3
+    max: 8
 
----
+simulation:
+  days_per_year: 250  # Betriebstage
+  max_years: 5        # Training-Dauer
+```
 
-## 🎓 **Modul-Anforderungen**
-
-### ✅ **Fortgeschrittene KI-Anwendungen**
-- [x] Reinforcement Learning (PPO)
-- [x] Custom Gymnasium Environment
-- [x] Multi-Agent Simulation
-- [x] Reward Shaping
-
-### ✅ **Cloud & Big Data**
-- [x] **Zustandslos**: Frontend (Streamlit)
-- [x] **Zustandsbehaftet**: Backend (Model in RAM)
-- [x] **Kubernetes**: GKE Deployment
-- [x] **Cloud Storage**: GCS für Models
-- [x] **Pub/Sub**: Event-Driven
-- [x] **Terraform**: IaC
-- [x] **CI/CD**: Cloud Build
+**Wichtig:** Diese Werte werden **einmal beim Init** gezogen und bleiben dann **über alle Episoden fix**!
 
 ---
 
-## 🔧 **Development Workflow**
+## 🧠 Wie funktioniert das?
 
-### **Lokal entwickeln:**
+### Startbedingungen
+
+```python
+# Beim Training-Start (env.__init__):
+env = SimpleEconomyEnv()
+
+# Zieht für jeden Agent zufällige Werte:
+Haushalt_0: 2500€  (aus [1000-5000€])
+Haushalt_1: 4200€  (aus [1000-5000€])
+Firma_0: 250.000€  (aus [100k-500k€])
+
+# Diese Werte bleiben FIX!
+```
+
+### Episoden
+
+```python
+# Episode 1
+obs = env.reset()  # Haushalte/Firmen bei Startwerten
+for day in range(250):  # 1 Jahr
+    action = agent.predict(obs)
+    obs, reward, done, info = env.step(action)
+
+# Episode 2
+obs = env.reset()  # WIEDER bei Startwerten (NICHT weiterführen!)
+# Haushalt_0 startet wieder mit 2500€
+```
+
+**Wichtig:** 
+- Gewinn aus Episode 1 wird **NICHT** in Episode 2 übernommen
+- Jede Episode startet "frisch" mit den fixen Startwerten
+- Aber: RL-Agent **lernt** aus allen Episoden!
+
+---
+
+## 📚 Module-Anforderungen
+
+### Fortgeschrittene KI-Anwendungen
+- ✅ Multi-Agent Reinforcement Learning
+- ✅ Custom Gymnasium Environment
+- ❌ RL-Training (TODO)
+- ❌ Reward-Design (TODO)
+
+### Cloud & Big Data
+- ❌ Zustandslose Komponente (Frontend)
+- ❌ Zustandsbehaftete Komponente (Backend mit Models)
+- ❌ Cloud Deployment (GCP)
+- ❌ CI/CD Pipeline
+
+---
+
+## 🛠️ Development
+
+### Tests ausführen
 
 ```bash
-# Code ändern
-vim backend/serve.py
-
-# Lokal testen
-python tests/test_env.py
-streamlit run frontend/app.py
-
-# Commit
-git add .
-git commit -m "Feature: XYZ"
-git push origin main
+python tests/test_simple_env.py
 ```
 
-### **Cloud Build triggert automatisch:**
-- ✅ Tests
-- ✅ Build
-- ✅ Deploy
+**Prüft:**
+- ✅ Startbedingungen bleiben über Episoden fix
+- ✅ Environment kann resetten
+- ✅ Steps funktionieren
 
-### **Release erstellen:**
+### Environment direkt nutzen
 
-```bash
-git tag -a v1.0.0 -m "Release 1.0.0"
-git push origin v1.0.0
+```python
+from envs.simple_economy_env import SimpleEconomyEnv
+
+env = SimpleEconomyEnv()
+obs, info = env.reset()
+
+# Manuelle Aktionen
+for _ in range(10):
+    action = env.action_space.sample()  # Zufällige Action
+    obs, reward, done, info = env.step(action)
+    print(f"Day {info['day']}: Reward={reward}")
 ```
 
 ---
 
-## 📚 **Dokumentation**
+## 📝 Dokumentation
 
-- [Terraform Guide](terraform/README.md)
-- [Kubernetes Guide](k8s/README.md)
-- [Training Guide](train/README.md)
-- [Development Guide](DEVELOPMENT.md)
+- **[DOCUMENTATION.md](DOCUMENTATION.md)** - Was wurde gemacht + Design-Entscheidungen
+- **[configs/agent_config.yaml](configs/agent_config.yaml)** - Parameter-Dokumentation
 
 ---
 
-## 💰 **Kosten (Geschätzt)**
-
-| Service | Nutzung | Kosten/Monat |
-|---------|---------|-------------|
-| GKE Cluster | 2 Nodes e2-standard-2 | ~€60 |
-| Cloud Storage | 10GB Models | ~€0.20 |
-| Pub/Sub | 100k Messages | Free Tier |
-| Cloud Build | 120 Builds/Monat | Free Tier |
-| Training Job | 1x/Woche (24h) | ~€40 |
-| **TOTAL** | | **~€100/Monat** |
-
-**Free Tier beachten:**
-- Cloud Build: 120 Build-Minuten/Tag kostenlos
-- Cloud Storage: 5GB kostenlos
-- GKE: $74.40/Monat Cluster-Fee (1 Zonal Cluster)
-
----
-
-## 👤 **Autor**
+## 👥 Team
 
 **H3nri5H** (Foxyy)  
-DHSH - Fortgeschrittene KI-Anwendungen & Cloud & Big Data  
-Januar 2026
+DHSH - Januar 2026
 
 ---
 
-## 📝 **Changelog**
+## 📌 Status
 
-### v2.0 (27.01.2026) - Cloud-Native Architecture
-- ✅ Terraform Infrastructure as Code
-- ✅ Kubernetes (GKE) Deployment
-- ✅ Cloud Storage Integration
-- ✅ Pub/Sub Event System
-- ✅ Cloud Build CI/CD Pipeline
-- ✅ Training Jobs in Cloud
-- ✅ Multi-Model Support
+**Version:** 0.1 - Basis-Setup  
+**Stand:** 28.01.2026
 
-### v1.0 (21.01.2026) - Initial Release
-- ✅ Economy Environment
-- ✅ Streamlit Frontend
-- ✅ FastAPI Backend
-- ✅ Cloud Run Deployment
+**Implementiert:**
+- ✅ Config mit Min/Max-Bereichen
+- ✅ Simple Environment (Haushalte + Firmen)
+- ✅ Fixe Startbedingungen
+- ✅ Tests
+
+**Nächste Schritte:**
+1. Wirtschafts-Logik implementieren (Produktion, Konsum, Markt)
+2. Action/Observation Spaces definieren
+3. Reward-Funktionen designen
+4. Lokales Training testen
+5. Backend/Frontend implementieren
+6. Cloud Deployment
 
 ---
 
-**Status**: 🟢 **Production Ready (Cloud-Native v2.0)**
-
-🚀 **Full Stack:** Local Development → Git Push → Auto Build → Auto Deploy → Live!
+**Für Dozenten:** Ein trainiertes Model wird später in `models/latest_model.zip` hochgeladen, sodass kein Training notwendig ist.
