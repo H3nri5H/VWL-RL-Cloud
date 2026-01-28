@@ -79,21 +79,21 @@ def quick_test():
         )
     }
     
-    # Ray 2.39: Use old API stack (stable and compatible)
+    # IMPORTANT: api_stack() must be called FIRST to set old API mode
     config = (
         PPOConfig()
         .api_stack(
             enable_rl_module_and_learner=False,
             enable_env_runner_and_connector_v2=False
         )
+        .framework("torch")
         .environment(
             env="economy",
             env_config={'config_path': 'configs/agent_config.yaml'}
         )
-        .framework("torch")
         .training(
             train_batch_size=200,
-            sgd_minibatch_size=50,  # Old API uses sgd_minibatch_size
+            sgd_minibatch_size=50,
             num_sgd_iter=3
         )
         .multi_agent(
@@ -101,7 +101,7 @@ def quick_test():
             policy_mapping_fn=policy_mapping_fn,
             policies_to_train=['household_policy', 'firm_policy']
         )
-        .rollouts(  # Old API uses rollouts()
+        .rollouts(
             num_rollout_workers=1
         )
     )
