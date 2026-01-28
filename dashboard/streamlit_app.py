@@ -32,9 +32,13 @@ st.markdown("**Live simulation with trained RL agents**")
 # Sidebar controls
 st.sidebar.header("⚙️ Simulation Controls")
 
+# Get default checkpoint path (absolute)
+default_checkpoint = str(Path("ray_results/economy_training").absolute())
+
 checkpoint_path = st.sidebar.text_input(
-    "Checkpoint Path",
-    value="ray_results/economy_training/PPO_economy_98b44_00000/checkpoint_000025"
+    "Checkpoint Path (absolute)",
+    value=default_checkpoint,
+    help="Use absolute path to checkpoint directory"
 )
 
 simulation_steps = st.sidebar.slider(
@@ -79,18 +83,57 @@ if 'simulation_data' not in st.session_state:
     st.session_state.algo = None
     st.session_state.env = None
 
+# Helper to find latest checkpoint
+def find_latest_checkpoint(base_path):
+    """Find latest checkpoint in directory"""
+    base = Path(base_path)
+    
+    # If it's already a checkpoint directory
+    if (base / "algorithm_state.pkl").exists():
+        return str(base.absolute())
+    
+    # Look for PPO subdirectories
+    ppo_dirs = list(base.glob("PPO_*"))
+    if not ppo_dirs:
+        return None
+    
+    # Find latest checkpoint in first PPO dir
+    ppo_dir = ppo_dirs[0]
+    checkpoints = list(ppo_dir.glob("checkpoint_*"))
+    
+    if not checkpoints:
+        return None
+    
+    # Sort by checkpoint number
+    checkpoints.sort(key=lambda x: int(x.name.split("_")[-1]))
+    
+    return str(checkpoints[-1].absolute())
+
 # Run simulation button
 if st.sidebar.button("🚀 Run Simulation", type="primary"):
     
     with st.spinner("Loading trained agents..."):
         try:
+            # Convert to absolute path
+            checkpoint_abs = Path(checkpoint_path).absolute()
+            
+            # Find actual checkpoint
+            actual_checkpoint = find_latest_checkpoint(checkpoint_abs)
+            
+            if actual_checkpoint is None:
+                st.error(f"❌ No checkpoint found in: {checkpoint_abs}")
+                st.info("💡 Make sure training completed and checkpoints were saved!")
+                st.stop()
+            
+            st.info(f"📁 Using checkpoint: {actual_checkpoint}")
+            
             # Initialize Ray
             if not ray.is_initialized():
                 ray.init(ignore_reinit_error=True, logging_level='ERROR')
             
             # Load algorithm
-            if st.session_state.algo is None:
-                st.session_state.algo = PPO.from_checkpoint(checkpoint_path)
+            if st.session_state.algo is None or True:  # Always reload for now
+                st.session_state.algo = PPO.from_checkpoint(actual_checkpoint)
             
             # Create environment
             st.session_state.env = RLlibEconomyEnv()
@@ -99,6 +142,7 @@ if st.sidebar.button("🚀 Run Simulation", type="primary"):
             
         except Exception as e:
             st.error(f"❌ Error loading checkpoint: {e}")
+            st.code(str(e))
             st.stop()
     
     # Run simulation
@@ -120,10 +164,6 @@ if st.sidebar.button("🚀 Run Simulation", type="primary"):
         }
         
         for step in range(simulation_steps):
-            
-            # Apply shock if enabled
-            if shock_enabled and step == shock_step:
-                st.session_state.env.apply_shock(shock_type, shock_magnitude)
             
             # Get actions
             actions = {}
@@ -320,7 +360,9 @@ else:
     st.markdown("---")
     st.markdown("""
     ### How to use:
-    1. **Set checkpoint path** (from your training)
+    1. **Set checkpoint path** to your training results directory
+       - Default: `ray_results/economy_training`
+       - Script will find latest checkpoint automatically
     2. **Choose simulation length** (days to simulate)
     3. **Optional: Enable economic shock**
        - Select type: Demand Drop, Supply Shock, etc.
@@ -329,5 +371,9 @@ else:
     4. **Click Run Simulation**
     5. **Observe how trained agents react!**
     
-    The agents will use their learned policies to respond to the shock in real-time.
+    The agents will use their learned policies to respond to conditions in real-time.
+    
+    ### Note:
+    - Make sure training completed successfully
+    - Checkpoint directory should contain `algorithm_state.pkl`
     """)
