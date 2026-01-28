@@ -1,37 +1,26 @@
-# Core RL Framework
-stable-baselines3==2.2.1        # Für PPO Training (einfacher als RLlib)
-gymnasium==0.28.1
-pettingzoo==1.24.3              # Multi-Agent (falls später benötigt)
+# Core (aktuell gebraucht)
+gymnasium==0.28.1               # Environment Framework
+PyYAML==6.0.1                   # Config Files
+numpy==1.26.4                   # Berechnungen
 
-# Config Management
-PyYAML==6.0.1                   # Für agent_config.yaml
+# RL Training (später aktivieren wenn Training implementiert)
+# stable-baselines3==2.2.1      # PPO Algorithm
+# torch==2.1.0                  # Deep Learning Backend
 
-# Deep Learning
-torch==2.1.0
+# Visualization (später für Frontend)
+# matplotlib==3.8.0
+# plotly==5.18.0
 
-# Data Processing
-numpy==1.26.4
-pandas==2.1.0
+# Web (später für Backend/Frontend)
+# streamlit==1.29.0             # Frontend
+# fastapi==0.109.0              # Backend API
+# uvicorn[standard]==0.27.0     # Backend Server
+# requests==2.31.0              # HTTP Client
 
-# Visualization
-matplotlib==3.8.0
-plotly==5.18.0
+# Multi-Agent Framework (falls später benötigt)
+# pettingzoo==1.24.3
 
-# Web Frontend (zustandslos)
-streamlit==1.29.0
-
-# Backend API (zustandsbehaftet)
-fastapi==0.109.0
-uvicorn[standard]==0.27.0
-requests==2.31.0
-
-# Cloud Storage (später)
+# Cloud (später für Deployment)
 # gcsfs==2023.12.0
 # google-cloud-storage==2.14.0
 # google-cloud-pubsub==2.18.4
-
-# Development
-python-dotenv==1.0.0
-
-# Optional: Ray RLlib (wenn Multi-Agent komplexer wird)
-# ray[rllib]==2.10.0
