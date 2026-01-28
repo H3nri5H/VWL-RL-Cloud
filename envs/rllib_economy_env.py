@@ -74,10 +74,10 @@ class RLlibEconomyEnv(MultiAgentEnv):
             dtype=np.float32
         )
         
-        # Firm Spaces
+        # Firm Spaces - Increased bounds to prevent overflow
         self.firm_observation_space = spaces.Box(
             low=np.array([0.0, 0.0, 0.0, 0.0]),
-            high=np.array([1000000.0, 1000.0, 50.0, 1000.0]),
+            high=np.array([2000000.0, 10000.0, 100.0, 50000.0]),  # Much higher limits
             dtype=np.float32
         )
         self.firm_action_space = spaces.Box(
