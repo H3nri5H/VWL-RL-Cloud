@@ -1,0 +1,43 @@
+# Firmen-Konfiguration
+# Fixe Startbedingungen für reproduzierbares Training
+
+firms:
+  count: 5
+  
+  # Fixe Startbedingungen (werden beim Training-Init gesetzt)
+  # Diese Werte bleiben über ALLE Episoden gleich
+  initial_conditions:
+    # Kleine Firmen (2 Stück)
+    - id: 0
+      capital: 120000
+      employees: 3
+      type: "small"
+      
+    - id: 1
+      capital: 180000
+      employees: 4
+      type: "small"
+    
+    # Mittlere Firmen (2 Stück)
+    - id: 2
+      capital: 250000
+      employees: 5
+      type: "medium"
+      
+    - id: 3
+      capital: 350000
+      employees: 6
+      type: "medium"
+    
+    # Große Firma (1 Stück)
+    - id: 4
+      capital: 480000
+      employees: 8
+      type: "large"
+  
+  # Gemeinsame Parameter
+  params:
+    wage_per_employee: 50         # Euro pro Tag pro Mitarbeiter
+    production_per_employee: 10   # Einheiten pro Tag pro Mitarbeiter
+    initial_inventory: 100        # Startlagerbestand
+    initial_price: 10             # Startpreis pro Einheit
