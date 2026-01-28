@@ -14,6 +14,8 @@ os.environ['RAY_DEDUP_LOGS'] = '0'
 
 import argparse
 import sys
+import signal
+import shutil
 from pathlib import Path
 
 # Add parent dir to path
@@ -28,6 +30,68 @@ from ray.tune import CLIReporter
 
 from envs.rllib_economy_env import RLlibEconomyEnv
 
+# Global flag for graceful shutdown
+shutdown_requested = False
+
+def signal_handler(signum, frame):
+    """Handle CTRL+C gracefully"""
+    global shutdown_requested
+    print("\n\n" + "="*60)
+    print("⚠️  CTRL+C detected - Graceful shutdown initiated...")
+    print("="*60)
+    print("\nSaving current checkpoint and stopping training...")
+    print("You can resume later with --resume flag!\n")
+    shutdown_requested = True
+
+def cleanup_old_checkpoints(trial_dir, keep_last_n=1):
+    """Keep only the last N checkpoints to save disk space
+    
+    Args:
+        trial_dir: Path to trial directory (e.g., ray_results/.../PPO_economy_xxx)
+        keep_last_n: Number of recent checkpoints to keep
+    """
+    trial_path = Path(trial_dir)
+    if not trial_path.exists():
+        return
+    
+    # Find all checkpoint directories
+    checkpoints = sorted(
+        [d for d in trial_path.glob("checkpoint_*") if d.is_dir()],
+        key=lambda x: int(x.name.split("_")[-1])
+    )
+    
+    # Delete all except last N
+    if len(checkpoints) > keep_last_n:
+        for checkpoint in checkpoints[:-keep_last_n]:
+            try:
+                shutil.rmtree(checkpoint)
+                print(f"🗑️  Removed old checkpoint: {checkpoint.name}")
+            except Exception as e:
+                print(f"⚠️  Could not remove {checkpoint.name}: {e}")
+
+def find_latest_checkpoint(base_path):
+    """Find latest checkpoint for resuming training"""
+    base = Path(base_path)
+    
+    if not base.exists():
+        return None
+    
+    # Look for PPO subdirectories
+    ppo_dirs = list(base.glob("PPO_*"))
+    if not ppo_dirs:
+        return None
+    
+    # Use first (should be only one)
+    ppo_dir = ppo_dirs[0]
+    checkpoints = sorted(
+        [d for d in ppo_dir.glob("checkpoint_*") if d.is_dir()],
+        key=lambda x: int(x.name.split("_")[-1])
+    )
+    
+    if not checkpoints:
+        return None
+    
+    return str(checkpoints[-1].absolute())
 
 def policy_mapping_fn(agent_id, episode, worker, **kwargs):
     """Map agents zu policies
@@ -41,8 +105,33 @@ def policy_mapping_fn(agent_id, episode, worker, **kwargs):
         return 'firm_policy'
 
 
+class TrainingCallback(tune.Callback):
+    """Custom callback for checkpoint cleanup and CTRL+C handling"""
+    
+    def __init__(self, keep_checkpoints=1):
+        self.keep_checkpoints = keep_checkpoints
+        self.last_cleanup_iter = 0
+    
+    def on_trial_result(self, iteration, trials, trial, result, **info):
+        """Called after each training iteration"""
+        global shutdown_requested
+        
+        # Check if shutdown requested
+        if shutdown_requested:
+            trial.stop()
+            return
+        
+        # Cleanup old checkpoints periodically (every 5 iterations)
+        if iteration - self.last_cleanup_iter >= 5:
+            cleanup_old_checkpoints(trial.local_path, self.keep_checkpoints)
+            self.last_cleanup_iter = iteration
+
+
 def train_economy(args):
     """Training starten"""
+    
+    # Setup CTRL+C handler
+    signal.signal(signal.SIGINT, signal_handler)
     
     print("\n" + "="*60)
     print("Multi-Agent Economy Training (RLlib + PPO)")
@@ -51,7 +140,20 @@ def train_economy(args):
     print(f"  Timesteps: {args.timesteps:,}")
     print(f"  Workers: {args.num_workers}")
     print(f"  Checkpoint Frequency: every {args.checkpoint_freq} iterations")
+    print(f"  Keep Checkpoints: {args.keep_checkpoints}")
     print(f"  Output: {args.output_dir}")
+    
+    # Check for resume
+    resume_checkpoint = None
+    if args.resume:
+        storage_path = Path(args.output_dir).absolute() / "economy_training"
+        resume_checkpoint = find_latest_checkpoint(storage_path)
+        if resume_checkpoint:
+            print(f"\n🔄 RESUMING from: {resume_checkpoint}")
+        else:
+            print(f"\n⚠️  No checkpoint found to resume from. Starting fresh...")
+    
+    print("\n💡 Press CTRL+C anytime to stop gracefully and save checkpoint!")
     print("\n" + "="*60 + "\n")
     
     # Ray initialisieren - mit minimalem Logging
@@ -153,35 +255,53 @@ def train_economy(args):
     print("Tipp: Starte in einem zweiten Terminal: tensorboard --logdir ray_results/economy_training\n")
     print("="*60 + "\n")
     
-    # Ray 2.30.0: Use absolute storage_path - NO OUTPUT SUPPRESSION!
-    result = tune.run(
-        "PPO",
-        name="economy_training",
-        config=config.to_dict(),
-        stop={
-            "timesteps_total": args.timesteps
-        },
-        checkpoint_freq=args.checkpoint_freq,
-        checkpoint_at_end=True,
-        storage_path=str(storage_path),
-        verbose=1,  # Show progress!
-        progress_reporter=reporter,
-        log_to_file=True,
-        raise_on_failed_trial=False
-    )
+    # Training Callback for cleanup
+    callback = TrainingCallback(keep_checkpoints=args.keep_checkpoints)
     
-    print("\n" + "="*60)
-    print("[SUCCESS] Training abgeschlossen!")
-    print("="*60)
-    print(f"\nModels gespeichert in: {storage_path}/economy_training")
-    print(f"\nTensorBoard starten:")
-    print(f"  tensorboard --logdir {storage_path}/economy_training")
-    print("\n" + "="*60)
-    print("\nTraining Stats:")
+    try:
+        # Ray 2.30.0: Use absolute storage_path
+        result = tune.run(
+            "PPO",
+            name="economy_training",
+            config=config.to_dict(),
+            stop={
+                "timesteps_total": args.timesteps
+            },
+            checkpoint_freq=args.checkpoint_freq,
+            checkpoint_at_end=True,
+            keep_checkpoints_num=args.keep_checkpoints,  # RLlib's built-in cleanup
+            storage_path=str(storage_path),
+            verbose=1,  # Show progress!
+            progress_reporter=reporter,
+            log_to_file=True,
+            raise_on_failed_trial=False,
+            resume=args.resume if resume_checkpoint else False,
+            restore=resume_checkpoint,
+            callbacks=[callback]
+        )
+        
+        print("\n" + "="*60)
+        print("[SUCCESS] Training abgeschlossen!")
+        print("="*60)
+        
+    except KeyboardInterrupt:
+        print("\n" + "="*60)
+        print("⚠️  Training stopped by user (CTRL+C)")
+        print("="*60)
+        result = None
     
-    # Zeige finale Stats - mit sicherem Formatting
-    if result.trials:
+    # Final cleanup - keep only last checkpoint
+    if result and result.trials:
         trial = result.trials[0]
+        cleanup_old_checkpoints(trial.local_path, args.keep_checkpoints)
+        
+        print(f"\nModels gespeichert in: {trial.local_path}")
+        print(f"\nTensorBoard starten:")
+        print(f"  tensorboard --logdir {storage_path}/economy_training")
+        print("\n" + "="*60)
+        print("\nTraining Stats:")
+        
+        # Zeige finale Stats - mit sicherem Formatting
         if trial.last_result:
             print(f"  Iterations: {trial.last_result.get('training_iteration', 'N/A')}")
             print(f"  Timesteps: {trial.last_result.get('timesteps_total', 'N/A'):,}")
@@ -204,6 +324,10 @@ def train_economy(args):
                 print(f"  Training Time: {time_total:.1f}s")
             else:
                 print(f"  Training Time: N/A")
+    else:
+        # Even if interrupted, show where checkpoint is
+        print(f"\n💾 Checkpoint saved in: {storage_path}/economy_training")
+        print(f"\n🔄 Resume training with: python train/train_local.py --resume --timesteps {args.timesteps}")
     
     print("\n")
     
@@ -227,10 +351,21 @@ if __name__ == "__main__":
         help="Checkpoint frequency (default: every 10 iterations)"
     )
     parser.add_argument(
+        "--keep-checkpoints",
+        type=int,
+        default=1,
+        help="Number of recent checkpoints to keep (default: 1, saves disk space)"
+    )
+    parser.add_argument(
         "--output-dir",
         type=str,
         default="./ray_results",
         help="Output directory for checkpoints (default: ./ray_results)"
+    )
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="Resume training from latest checkpoint"
     )
     
     # Ressourcen
