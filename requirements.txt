@@ -1,5 +1,5 @@
 # Core (aktuell gebraucht)
-gymnasium==0.28.1               # Environment Framework
+gymnasium==1.0.0                # Environment Framework (updated for Ray 2.39.0)
 PyYAML==6.0.1                   # Config Files
 numpy==1.26.4                   # Berechnungen
 
