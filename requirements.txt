@@ -3,24 +3,21 @@ gymnasium==0.28.1               # Environment Framework
 PyYAML==6.0.1                   # Config Files
 numpy==1.26.4                   # Berechnungen
 
-# RL Training (später aktivieren wenn Training implementiert)
-# stable-baselines3==2.2.1      # PPO Algorithm
-# torch==2.1.0                  # Deep Learning Backend
+# Multi-Agent RL Training
+ray[rllib]==2.9.0               # RLlib fuer Multi-Agent Training
+torch==2.1.0                    # Deep Learning Backend
 
-# Visualization (später für Frontend)
+# Visualization (spaeter fuer Frontend)
 # matplotlib==3.8.0
 # plotly==5.18.0
 
-# Web (später für Backend/Frontend)
+# Web (spaeter fuer Backend/Frontend)
 # streamlit==1.29.0             # Frontend
 # fastapi==0.109.0              # Backend API
 # uvicorn[standard]==0.27.0     # Backend Server
 # requests==2.31.0              # HTTP Client
 
-# Multi-Agent Framework (falls später benötigt)
-# pettingzoo==1.24.3
-
-# Cloud (später für Deployment)
+# Cloud (spaeter fuer Deployment)
 # gcsfs==2023.12.0
 # google-cloud-storage==2.14.0
 # google-cloud-pubsub==2.18.4
